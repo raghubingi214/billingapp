@@ -13,9 +13,11 @@ $fixturePath = Join-Path $repositoryRoot "supabase/tests/$Fixture"
 if (-not (Test-Path -LiteralPath $fixturePath -PathType Leaf)) {
     throw "Fixture does not exist: $Fixture"
 }
-if (-not (Get-Command npx.cmd -ErrorAction SilentlyContinue)) {
+$npxCommand = Get-Command npx -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $npxCommand) {
     throw 'Node.js/npm is required to run the pinned Supabase CLI.'
 }
+$npxExecutable = $npxCommand.Source
 $runId = [guid]::NewGuid().ToString('N')
 $projectId = 'billingapp-validation-' + $runId.Substring(0, 12)
 $runDirectory = Join-Path $repositoryRoot ".local-db-validation/$runId"
@@ -23,7 +25,7 @@ New-Item -ItemType Directory -Path $runDirectory -Force | Out-Null
 
 function Invoke-ValidationCli {
     param([string[]]$CliArguments)
-    & npx.cmd --yes "supabase@$cliVersion" @CliArguments
+    & $npxExecutable --yes "supabase@$cliVersion" @CliArguments
     if ($LASTEXITCODE -ne 0) {
         throw "Local Supabase command failed: $($CliArguments[0]) $($CliArguments[1])"
     }

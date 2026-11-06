@@ -6,6 +6,10 @@ Run from PowerShell with Node.js/npm and a working Docker Desktop engine:
 ./tool/test-database.ps1 -Fixture customer_ledger.sql
 ```
 
+The same script runs in PowerShell on the Linux GitHub runner's `database` job.
+That job is intended to validate the migration/fixture independently of the
+Windows Docker engine; its result must be checked before claiming a SQL pass.
+
 The script pins Supabase CLI 3.0.0 and generates a unique project under the ignored
 `.local-db-validation` directory. It starts local Postgres, resets that isolated
 database to the copied migrations without seed scripts, runs the selected SQL

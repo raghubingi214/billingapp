@@ -1,0 +1,7 @@
+# Copy to android/key.properties and fill locally. Do not commit signing secrets.
+# Absolute paths are supported; relative paths resolve from the android directory.
+# Use forward slashes for Windows paths.
+storeFile=
+storePassword=
+keyAlias=
+keyPassword=

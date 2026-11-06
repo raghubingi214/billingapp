@@ -1,7 +1,28 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val allowUnsignedRelease = providers.gradleProperty("smartBillingUnsignedRelease").orNull == "true"
+val uploadKeyProperties = Properties()
+val uploadKeyPropertiesFile = rootProject.file("key.properties")
+if (uploadKeyPropertiesFile.isFile && !allowUnsignedRelease) {
+    uploadKeyPropertiesFile.inputStream().use { uploadKeyProperties.load(it) }
+}
+val uploadKeystore = uploadKeyProperties.getProperty("storeFile")
+    ?.takeIf { it.isNotBlank() }?.let { rootProject.file(it) }
+val releaseSigningReady = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+    .all { !uploadKeyProperties.getProperty(it).isNullOrBlank() } && uploadKeystore?.isFile == true
+val useReleaseSigning = releaseSigningReady && !allowUnsignedRelease
+val releaseSigningMessage = "Release signing is not configured. Complete android/key.properties with your upload keystore. " +
+    "For unsigned compile checks only, pass -PsmartBillingUnsignedRelease=true."
+
+if (gradle.startParameter.taskNames.any { it.contains("release", ignoreCase = true) } &&
+    !releaseSigningReady && !allowUnsignedRelease) {
+    throw GradleException(releaseSigningMessage)
 }
 
 android {
@@ -25,11 +46,31 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (useReleaseSigning) {
+            create("release") {
+                storeFile = uploadKeystore
+                storePassword = uploadKeyProperties.getProperty("storePassword")
+                keyAlias = uploadKeyProperties.getProperty("keyAlias")
+                keyPassword = uploadKeyProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (useReleaseSigning) signingConfigs.getByName("release") else null
+        }
+    }
+}
+
+// Also guard aggregate tasks such as `assemble`, which can include release work.
+tasks.configureEach {
+    if (name.endsWith("Release") && listOf("package", "assemble", "bundle", "sign").any { name.startsWith(it) }) {
+        doFirst {
+            if (!releaseSigningReady && !allowUnsignedRelease) {
+                throw GradleException(releaseSigningMessage)
+            }
         }
     }
 }

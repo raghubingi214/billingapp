@@ -10,6 +10,7 @@ tmp/
 android/local.properties
 android/key.properties
 *.jks
+*.keystore
 ios/Pods/
 ios/.symlinks/
 ios/Flutter/ephemeral/
@@ -22,4 +23,5 @@ skills-lock.json
 *.log
 .local-db-validation/
 supabase/.temp/
+android/.kotlin/
 

@@ -1,6 +1,7 @@
 -- Run with a privileged development connection. Everything is rolled back.
 -- These fixtures simulate Supabase JWT identity and authenticated database role.
 begin;
+set local timezone = 'Asia/Kolkata';
 create temporary table foundation_test_context (
   label text primary key, id uuid, data jsonb
 ) on commit drop;
