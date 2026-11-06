@@ -1,0 +1,1251 @@
+SMART BILLING& INVENTORY
+Business Requirements • Functional Requirements • UI/UX • API • Database • Firebase
+Product requirements and implementation blueprint for a production-oriented, India-first Flutter mobile SaaS application.
+Version: 1.0 — 05 November 2026
+Platform: Android first; iOS-compatible design
+Frontend: Flutter / Riverpod / go_router
+Backend: Supabase Auth + PostgreSQL + Edge Functions / RPC
+Notifications: Firebase Cloud Messaging (FCM)
+Audience: Product owner, UX designer, Flutter engineer, backend engineer, QA tester
+Status: Build-ready specification and recommended architecture, not a claim that code or integrations have been implemented. Legal/tax requirements must be checked by a qualified Indian GST professional before production launch.
+Document control and reading guide
+Item
+Decision
+Product name (working)
+Smart Billing & Inventory / BillFlow (placeholder; verify trademarks)
+Business model
+Multi-tenant SaaS, monthly/annual subscription per merchant
+MVP customer
+India-based small retailers and service businesses
+Operating model
+Online-first mobile app; offline draft support deferred
+Primary currency / timezone
+INR / Asia-Kolkata (persist timestamps in UTC)
+Tax context
+GST-aware invoice data; e-invoicing/IRN integration is a separate phase
+Data ownership
+Merchant organization owns its data; isolated by organization ID
+External systems
+Supabase, Firebase/FCM; optional payments, SMS/WhatsApp, IRP later
+Contents
+01. Executive summary
+02. Business requirements (BRD)
+03. Scope, personas and permissions
+04. Processes and business rules
+05. Functional requirements (FRD)
+06. UI/UX specification and screen catalog
+07. Backend architecture
+08. Database specification and data dictionary
+09. API contract and examples
+10. GST, invoices and calculation engine
+11. Firebase notifications
+12. Non-functional requirements and security
+13. QA/UAT plan
+14. Release roadmap, operations and commercial model
+15. Traceability, assumptions and source references
+01 | Executive summary
+Build a practical billing, product catalog, stock, customer-credit, purchases and business analytics app for small merchants. The primary objective is to let a shop owner issue an accurate invoice in under one minute, see real-time stock levels, collect money, and understand profit/cash exposure without spreadsheets.
+Product outcomes
+Fast checkout: search or scan item, add quantity/discount, select customer, collect payment, issue PDF invoice.
+Accurate inventory: movement-based ledger, purchase receipts, returns, wastage, stock adjustments, low-stock alerts.
+Reliable bookkeeping: payments and allocation to invoices; customer ledger; dues and partial settlement.
+Merchant clarity: daily sales, collected cash, pending receivables, profit approximation, inventory valuation.
+Multi-user control: owners, managers, cashiers and accountants; strict separation among merchants.
+Simple onboarding: business details, GST regime, invoice series, one shop, first products and customers.
+Success metrics and target KPIs
+KPI
+Initial success target (proposed)
+How measured
+First invoice
+< 10 min from signup
+Onboarding funnel
+Invoice creation time
+< 60 sec for repeat customer
+Client timing events
+Inventory data error rate
+< 0.5% corrected transactions
+Stock reconciliation
+WAU / MAU
+> 50% in active pilots
+Events / session aggregation
+Trial-to-paid
+> 10% after merchant validation
+Subscriptions
+Crash-free sessions
+> 99.5%
+Crash reporting
+Cross-tenant access
+0 unauthorized reads/writes
+Automated RLS tests
+All KPI targets are planning assumptions, not market benchmarks. Validate via a 10–20-shop pilot.
+02 | Business requirements document (BRD)
+Problem statement
+Small shops frequently use paper registers or disconnected mobile tools. Problems include duplicate invoice numbers, uncertain customer dues, missed purchase entries, stock drift, inconsistent discounts, GST mistakes, and low visibility into margins. The solution is one secure and simple daily-operating tool.
+Business objectives
+BR-01: Digitize sales and purchase bookkeeping.
+BR-02: Reduce stock-outs and excess inventory.
+BR-03: Increase cash collection through dues visibility and respectful reminders.
+BR-04: Enable compliant-looking invoice records with tax data and audit trail.
+BR-05: Support one business to manage multiple outlets (later/optional).
+BR-06: Generate recurring SaaS revenue with reasonable usage tiers.
+BR-07: Work on typical Android devices with limited bandwidth.
+BR-08: Protect customer and merchant financial information.
+Target segments and jobs to be done
+Segment
+Core pain point
+Highest-value workflow
+Kirana / general store
+Fast checkout / item stock
+POS billing + barcode
+Electrical / hardware shop
+Many SKUs, credit sales
+Stock and customer ledgers
+Stationery / mobile accessories
+Repeat purchases, variants
+Purchase receipts and low stock
+Beauty / repair service
+Services + products
+Service invoice + payments
+Small wholesaler
+Business customers / tax
+B2B invoice, receivables
+Bookkeeper / CA
+Reconciliation / exports
+Report export with audit trail
+Business value and monetization
+Free trial: limited invoices, users and export; no forced data removal after trial.
+Starter: 1 location, 2 users, core sales and stock; proposed test price only, e.g. INR 299/month.
+Growth: multiple users, reminders, reports, purchase orders; e.g. INR 699/month.
+Pro: multi-outlet, API access, advanced tax/IRP integration (third-party costs extra); custom pricing.
+Plan management is a product entitlement system; payment gateway setup and subscription verification are separate backend responsibilities.
+Dependencies / stakeholders
+Stakeholder
+Responsibility
+Merchant owner
+Approve operations, pricing, tax settings, invoice template
+Cashier / staff
+Issue sales invoices and record payments
+Accountant
+Review ledgers, tax exports, refunds
+Product / UX
+Define usability, accessibility and release acceptance
+Engineering
+Implement Flutter, Postgres, API, integrations and testing
+GST consultant
+Approve tax calculation, labels, document types and exceptions
+Platform admin
+Support subscriptions, abuse prevention and operational monitoring
+In / out of initial scope
+MVP IN
+Deferred / NOT assumed in MVP
+Email/phone login via Supabase-supported flow
+Native GSTR-1 filing to GST portal
+Single organization / one location
+IRN/GST e-invoice registration and official QR
+Product/service, variants simple SKU
+Complex manufacturing, recipe/BOM
+Sales / purchase / returns / discounts
+Accounting double-entry general ledger
+Customer / supplier balances
+Bank-feed auto reconciliation
+PDF invoice / share / print
+Direct WhatsApp Business API integration
+Stock ledger, low stock, reports
+Full offline multi-device conflict resolution
+FCM for staff business alerts
+Automated SMS marketing or customer push without opt-in
+03 | User personas, roles and access
+Personas
+Owner: checks daily net sales and stock, approves write-offs, manages staff and billing preferences.
+Manager: performs sales, purchases, returns, stock counts, customer follow-up and some reports.
+Cashier: bills quickly, receives authorized payments, sees assigned shop inventory.
+Accountant: views financial and GST information, exports reports, reconciles payments; can create adjustments only if granted.
+Platform admin (internal): manages SaaS plans and operational support, without routine access to merchant private records.
+Role-permission matrix
+Capability
+Owner
+Manager
+Cashier
+Accountant
+View catalog / prices
+Yes
+Yes
+Yes
+Yes
+Create & issue sale
+Yes
+Yes
+Yes
+By grant
+Refund / void finalized invoice
+Yes
+With approval
+No
+By grant
+Manage purchases
+Yes
+Yes
+No
+By grant
+Manual stock adjustments
+Yes
+With approval
+No
+No
+View full customer balances
+Yes
+Yes
+Limited
+Yes
+Export financial report
+Yes
+By grant
+No
+Yes
+Manage users / tax / invoice series
+Yes
+No
+No
+No
+Manage subscription
+Yes
+No
+No
+No
+Backend authorization checks permissions per request. Flutter hidden buttons are not security. A user may belong to multiple organizations; the active organization is never accepted without membership verification.
+04 | Core workflows and business rules
+Flow A | Organization setup
+Sign up / verify identity through Supabase Auth.
+Create organization and owner membership in one protected server transaction.
+Collect shop name, business address, state, timezone, tax regime (unregistered / regular / composition), optional GSTIN.
+Create default outlet, INR currency, invoice prefix and first financial-year sequence.
+Add first product/service or import CSV; optionally add customers.
+Present demo invoice preview, then enter dashboard.
+Flow B | Finalize sales invoice
+Cashier opens New Sale; UI fetches eligible products, prices and available stock.
+Select customer or Guest/Walk-in. Add product/service lines, quantity, unit and discounts.
+Server revalidates pricing, stock, outlet, permissions, customer state, tax regime and tax rules.
+Server uses a single database transaction to allocate a unique invoice number, calculate totals, insert lines/taxes/ledger, decrement inventory through movements, and commit.
+Generate a versioned PDF snapshot; place in private storage, return signed download link on access.
+Record payment(s) or due amount separately; invoice status derives from allocated payments.
+Queue event for in-app notification and optionally authorized customer delivery channel.
+Flow C | Receive purchased stock
+Choose supplier, receive bill number/date and purchase details.
+Enter products, quantities, purchase rate and applicable input tax.
+On receipt posting, create immutable stock-in movement and update stock balance in one transaction.
+Record partial/full payment to supplier; post due balance in supplier ledger.
+Recompute weighted average purchase cost if this inventory valuation method is chosen.
+Update low-stock views and purchase reports.
+Flow D | Credit and collection
+Issue invoice with total_due > 0; customer receivable recorded at invoice issue.
+Customer profile lists open invoices and available unapplied advances.
+Collect cash/UPI/bank; store payment reference and method.
+Allocate payment to one or more invoices atomically; never allow over-allocation.
+Update balances, send staff receipt confirmation, and retain immutable payment audit.
+Manual reminders first; automated reminders require opt-in, channel integration and rate limits.
+Business rules, decisions and state machines
+Rule ID
+Behavior
+RULE-01
+Every table row is scoped by organization_id; outlet_id applies where relevant.
+RULE-02
+Invoice number unique per organization + document series + financial year; reserve only inside finalized transaction.
+RULE-03
+Draft documents may change; finalized sales invoices cannot be silently edited or deleted.
+RULE-04
+Cancel/credit note or return uses reversal / linked credit transaction with required reason and author.
+RULE-05
+Money represented as numeric(18,2), quantities numeric(18,3) or scale per UOM; no floating-point tax math.
+RULE-06
+Tax rate, HSN/SAC and business/customer tax snapshots stored on issued invoice.
+RULE-07
+Insufficient stock: block sales by default; owner may explicitly enable negative stock with audit warning.
+RULE-08
+Payment amount > 0; allocated <= payment; invoice paid cannot exceed balance.
+RULE-09
+Product deactivation preserves historical invoice lines and movements.
+RULE-10
+All mutation APIs support idempotency_key for retry-sensitive commands.
+RULE-11
+GST mode determines tax invoice vs bill of supply vs ordinary commercial invoice; never infer compliance solely from entering GSTIN.
+RULE-12
+Post-event notifications are queued only after successful commit; no duplicate dispatch per event+recipient+channel.
+RULE-13
+Subscription expiry degrades to read-only / restricted new billing according to written terms; merchant exports preserved.
+RULE-14
+Guest checkout may omit customer PII when law and invoice type permit; collect mandatory recipient fields when triggered.
+Document states
+Sales invoice: draft -> issued -> partially_paid / paid; issued may have return/credit-note references; voiding is a separate controlled action, not hard deletion. Purchase: draft -> received -> partly_paid / paid; payments may change settlement but not inventory receipt. Stock count: draft -> submitted -> approved -> posted. Notification: queued -> sending -> delivered_to_provider / failed / retry; FCM acceptance is not proof user saw a message.
+05 | Functional requirements (FRD)
+Authentication and organization
+FR-001 | Login / logout / password recovery [MUST]
+Supabase Auth session management, email/OTP options chosen per final identity policy.
+Acceptance: Invalid credentials receive generic errors; revoked sessions cannot fetch company data.
+Integration: Supabase Auth
+FR-002 | Organization onboarding [MUST]
+First owner creates legal business profile, address, GST setting, numbering series and outlet.
+Acceptance: Only one owner membership and initial series created atomically; onboarding resumes safely.
+Integration: POST /orgs/onboard
+FR-003 | Staff invitations and RBAC [MUST]
+Owner invites/revokes staff and assigns role per organization.
+Acceptance: Revoked staff loses access immediately; cannot self-promote.
+Integration: members / invites
+FR-004 | Multi-organization switching [SHOULD]
+Authorized members can switch between businesses, data cache reset on change.
+Acceptance: No data leaks across switching.
+Integration: GET /orgs
+Catalog / inventory
+FR-005 | Product and service master [MUST]
+Name, type, SKU, barcode, category, unit, image, selling/purchase price, HSN/SAC, tax settings, reorder threshold.
+Acceptance: Unique SKU per org where supplied; positive pricing where policy requires; services have no stock.
+Integration: products
+FR-006 | Product search and scan [MUST]
+Search by name/SKU/barcode and scanner input; deactivated products hidden by default.
+Acceptance: Search p95 target below 500 ms for 5k items under normal connection.
+Integration: GET /products
+FR-007 | Stock balance and ledger [MUST]
+Display quantity on hand, available, adjustments and transaction history.
+Acceptance: Ledger and stock balance reconcile; posting is idempotent.
+Integration: GET /stock, POST /stock/adjustments
+FR-008 | Low stock [MUST]
+Threshold per product/outlet with daily alert and dashboard card.
+Acceptance: No repeated push storm for same unchanged low-stock condition.
+Integration: stock alert job
+FR-009 | Stocktake / adjustment [SHOULD]
+Manual stock count and adjustment reason, reviewer approval when required.
+Acceptance: Only authorized staff post; preserve before/after values and actor.
+Integration: POST /stock/adjustments
+FR-010 | Barcode and product image [SHOULD]
+Scan UPC/EAN or merchant SKU, upload optimized image to private/public catalog storage per policy.
+Acceptance: Camera permission graceful; prevent unsafe file types and excessive size.
+Integration: Storage and product service
+Sales and invoicing
+FR-011 | Sales draft [MUST]
+Create/edit draft with cart lines, customer, discount, tax and payment options.
+Acceptance: No stock movements or final invoice number until issue.
+Integration: POST /sales/drafts
+FR-012 | Issue sales invoice [MUST]
+Backend-generated price/tax total, invoice number and document snapshot.
+Acceptance: Exactly-once issuance for same idempotency key; stock and invoice commit together.
+Integration: POST /sales/{id}/issue
+FR-013 | Multiple payment methods [MUST]
+Capture cash, UPI, card, bank, credit with partial and split tender.
+Acceptance: Record method + transaction reference; never mark gateway success based only on mobile app callback.
+Integration: POST /payments
+FR-014 | PDF / printing / sharing [MUST]
+A4 and thermal receipt templates, merchant logo, statutory fields, totals and payment due.
+Acceptance: PDF immutable once issued; signed/private access; no unofficial IRN/QR claim.
+Integration: GET /invoices/{id}/pdf
+FR-015 | Customer credit sale [MUST]
+Customer selected for due sale; due date and credit amount tracked.
+Acceptance: Balance equals invoiced - credited - applied receipts; prevent unexpected negative receivable.
+Integration: ledgers
+FR-016 | Sales return / credit note [SHOULD]
+Link returned quantity to original line; restock based on disposition; issue credit/refund.
+Acceptance: Cannot return more quantity than net issued quantity; tax adjustment uses original invoice context.
+Integration: POST /sales/{id}/returns
+FR-017 | Discounts and taxes [MUST]
+Line/invoice discounts (fixed/%), inclusive/exclusive pricing and CGST/SGST/IGST split.
+Acceptance: Use tested deterministic decimal calculations; state-based tax outcome from supplier/place of supply.
+Integration: pricing engine
+Purchases and supplier
+FR-018 | Supplier management [MUST]
+Name, GSTIN (optional), phone, address, payment terms and opening balance.
+Acceptance: Supplier duplicates flagged; per-org access.
+Integration: suppliers
+FR-019 | Purchase entry / receive [MUST]
+Create supplier bill, receive products, record tax/cost, increase stock and payable.
+Acceptance: Posting atomically creates movements and purchase lines; duplicate supplier bill flagged.
+Integration: POST /purchases/receive
+FR-020 | Supplier payment [MUST]
+Allocate outgoing payment to outstanding purchase bills.
+Acceptance: Allocation cap enforced, audit history retained.
+Integration: POST /supplier-payments
+FR-021 | Purchase returns [SHOULD]
+Return purchased goods to supplier, reverse inventory and account for credit.
+Acceptance: Cannot return beyond received less previously returned.
+Integration: purchase returns
+Customers, collections and reports
+FR-022 | Customer master / credit [MUST]
+Contact, billing/shipping address, GSTIN, optional credit limit.
+Acceptance: PII accessible only to authorized roles; masked in cashier views where appropriate.
+Integration: customers
+FR-023 | Customer ledger / statements [MUST]
+Chronological invoices, receipts, credits, running balance and statement export.
+Acceptance: Statement sums match accounting source rows for any date range.
+Integration: GET /customers/{id}/ledger
+FR-024 | Overdue reminders [SHOULD]
+Due reminders for staff, and customers only through consented channels.
+Acceptance: Notification cooldown, opt-out, audit and recipient validation.
+Integration: notification_jobs
+FR-025 | Dashboard KPIs [MUST]
+Today sales, collections, unpaid, low-stock count, returns and top products.
+Acceptance: Based on posted data; filter by date/outlet; show last refresh.
+Integration: GET /dashboard
+FR-026 | Reports/export [MUST]
+Sales, item profitability, stock valuation, purchase, payment, customer aging, GST summary.
+Acceptance: CSV/PDF exports contain filters, generated timestamp, permissions and reconciliation footnote.
+Integration: GET /reports/*
+FR-027 | Audit timeline [MUST]
+Record actor, time, organization, object, action, before/after metadata on sensitive changes.
+Acceptance: No client-side editing or deletion of audit events.
+Integration: audit_events
+Subscription and settings
+FR-028 | Plan entitlements [SHOULD]
+Limits on monthly invoices, staff, locations, report types and reminders.
+Acceptance: Enforced server-side, including concurrent requests.
+Integration: subscriptions
+FR-029 | GST / invoice settings [MUST]
+Tax registration regime, HSN defaults, series, print template, terms and signature settings.
+Acceptance: Changes affect future invoices only; historical snapshots remain unchanged.
+Integration: settings
+FR-030 | Notifications center [MUST]
+In-app feed and FCM push for stock, payments, overdue, approvals and system notices.
+Acceptance: Permission disabled does not block core work; device tokens never exposed to other tenants.
+Integration: notifications
+FR-031 | Support / export / deletion [SHOULD]
+Help, feedback, export request, account closure request and legal retention workflow.
+Acceptance: Owner authenticated; retained tax records not immediately deleted when law requires preservation.
+Integration: support / exports
+06 | UI/UX requirements and screens
+Design system — premium but shop-friendly
+Design token
+Recommended default
+Visual direction
+Clean finance UI; high contrast, minimal gradients, clear hierarchy
+Colors
+Primary navy #152B49; interactive blue #2563EB; success teal #0D9488; warning amber #D97706; red #DC2626
+Typography
+Inter / Material 3; H1 24–28sp, section 18–20sp, body 14–16sp, labels 12–13sp
+Layout
+8dp base spacing; 16dp screen margins; cards 12–16dp radius
+Touch targets
+At least 48x48dp; no destructive swipe without confirmation
+App bar
+Title + contextual action; back arrow on detail screens; notification icon where useful
+Navigation
+Bottom tabs: Home, Sales, Inventory, More; persistent New Sale quick action
+States
+Skeleton/loading, first-run empty, no results, permission denied, offline, recoverable error, success
+Responsive
+360dp min phone width; adapt tablet, large text and landscape without clipping
+Accessibility
+Semantic labels, text scaling, WCAG-minded contrast, camera alternatives
+Navigation map
+Splash -> Sign in -> Org setup / Select business -> Main shellMain shell: Home | Sales | Inventory | More    [+ New Sale]Home -> Alerts | Due collections | Sales summarySales -> Invoice list -> Invoice detail -> PDF / Payment / ReturnNew Sale -> Product search -> Cart -> Customer -> Payment -> Issue -> ShareInventory -> Products -> Product detail -> Stock history / Edit / AdjustmentMore -> Customers | Suppliers | Purchases | Reports | Team | Settings | Subscription
+Screen-by-screen specification
+S01 | Splash / session restore
+Who uses it: All
+Layout: Logo, loading indicator, version footer; restores prior org only after membership check.
+Actions: Retry / sign in.
+Fields / validation: No user inputs.
+States: No session, expired session, network error, blocked organization.
+Navigation / backend: Supabase Auth; GET /me.
+S02 | Sign in / register
+Who uses it: All
+Layout: Brand header, email/phone option, password/OTP, clear privacy link, keyboard-aware form.
+Actions: Sign in, create account, reset access.
+Fields / validation: Email format, rate limit OTP, secure password policy.
+States: Verifying, invalid, locked/rate-limited.
+Navigation / backend: Supabase Auth.
+S03 | New business setup
+Who uses it: Owner
+Layout: Three-step progress: Profile > Tax > Finish; GST regime chooser with explanatory help.
+Actions: Save, go back, complete setup.
+Fields / validation: Business name, state/address, GSTIN when applicable, invoice prefix; validated server-side.
+States: Draft, validation errors, resumable setup.
+Navigation / backend: POST /orgs/onboard.
+S04 | Home dashboard
+Who uses it: Owner/Manager/Cashier limited
+Layout: Top shop switcher + notification bell; 2x2 KPI cards; 7-day sales chart; outstanding and low-stock previews; large New Sale action.
+Actions: Open KPI details, start bill, filter today/week/month.
+Fields / validation: Date range and location selection.
+States: Empty new shop, partial data, loading, no network.
+Navigation / backend: GET /dashboard/summary and /notifications.
+S05 | New sale / billing POS
+Who uses it: Owner/Manager/Cashier
+Layout: Search/scan bar, item result list, product tiles, sticky cart footer with total + items.
+Actions: Scan, add item, change quantity, review cart.
+Fields / validation: Stock availability, price, UOM, discounts, taxes.
+States: Empty cart, unavailable item, network loss, pricing changed.
+Navigation / backend: GET /products; draft cart local only until save.
+S06 | Cart & tax breakdown
+Who uses it: Owner/Manager/Cashier
+Layout: Line cards with quantity steppers, discount chips; sticky total; collapsible tax details.
+Actions: Edit lines, add customer, continue payment.
+Fields / validation: Qty > 0; authorized discounts; no unapproved below-cost override.
+States: Out-of-stock, invalid tax code, stale price.
+Navigation / backend: POST /sales/drafts; quote endpoint.
+S07 | Customer picker / create
+Who uses it: All sales staff
+Layout: Tabs Recent / All / Guest, searchable results with due badge.
+Actions: Select, add new, view customer balance where permitted.
+Fields / validation: Name, phone optional, GSTIN/state for B2B; duplicate check.
+States: No matches, privacy masking, validation.
+Navigation / backend: GET/POST /customers.
+S08 | Checkout and payment
+Who uses it: Authorized sales staff
+Layout: Grand total, split tender rows (Cash/UPI/Card/Bank/Credit), balance due and issue action.
+Actions: Collect, split, set due date, issue invoice.
+Fields / validation: Sum applied <= final total, reference for digital method, no client-only payment verification.
+States: Issuing, duplicate tap, payment failed, success.
+Navigation / backend: POST /sales/{id}/issue; payments API.
+S09 | Invoice issued / receipt
+Who uses it: Authorized staff
+Layout: Success state, invoice number, compact total and status; preview card; 3 clear actions.
+Actions: View PDF, Share, Print, Record payment.
+Fields / validation: Final invoice is read-only.
+States: PDF preparing, printer unavailable.
+Navigation / backend: GET /sales/{id}; signed PDF link.
+S10 | Sales invoices list
+Who uses it: Owner/Manager/Accountant; cashier scoped
+Layout: Search by invoice/customer, date filters, status tabs and amount right aligned.
+Actions: Open detail, export authorized range.
+Fields / validation: Date, status, amount ranges.
+States: No invoices, paginated error.
+Navigation / backend: GET /sales; cursor pagination.
+S11 | Invoice detail / activity
+Who uses it: Roles per permission
+Layout: Header + status badge, customer block, line details, payments, delivery and audit timeline.
+Actions: Share, collect, return, raise correction request.
+Fields / validation: Cannot edit posted totals; return reason mandatory.
+States: Part-paid, paid, return pending, canceled by permitted workflow.
+Navigation / backend: GET /sales/{id}/detail.
+S12 | Products & stock list
+Who uses it: Owner/Manager/Cashier
+Layout: Inventory value KPI, searchable list, barcode action, stock chips, filter category/low stock.
+Actions: Open product, add product, stocktake.
+Fields / validation: Search, category, active status.
+States: No products, image failed, low stock.
+Navigation / backend: GET /products, GET /stock.
+S13 | Add / edit product
+Who uses it: Owner/Manager
+Layout: Sectioned form: Basic > Pricing > Tax > Stock; optional image and barcode.
+Actions: Save, archive, duplicate.
+Fields / validation: SKU uniqueness, money >= 0, unit, HSN/SAC, tax rate mapping; no stock for services.
+States: Unsaved changes, invalid input, in-use product.
+Navigation / backend: POST/PATCH /products.
+S14 | Product details / movement
+Who uses it: Owner/Manager
+Layout: Image and price, on-hand/threshold blocks, movement timeline with reference and actor.
+Actions: Adjust stock, edit product, view purchase history.
+Fields / validation: Movement reason and verified stock balances.
+States: Negative stock warning, zero history.
+Navigation / backend: GET /stock/movements.
+S15 | Stock adjustment / stock count
+Who uses it: Owner/Manager approved
+Layout: Current qty, counted qty, delta, reason, optional photo and approval section.
+Actions: Save draft, submit, approve/post.
+Fields / validation: Reason mandatory, permissions, integer/decimal quantity precision.
+States: Awaiting approval, posted, conflict.
+Navigation / backend: POST /stock/adjustments.
+S16 | Low stock center
+Who uses it: Owner/Manager
+Layout: Urgent items first, suggested reorder qty, supplier and last purchase price.
+Actions: Create purchase draft, mute warning with reason.
+Fields / validation: Threshold and reorder target.
+States: No warnings, stale balance.
+Navigation / backend: GET /stock/low.
+S17 | Customers list
+Who uses it: Owner/Manager/Accountant
+Layout: Search, outstanding totals, aging filters, grouped customer cards.
+Actions: Add customer, open ledger.
+Fields / validation: Phone optional; tax-related address where required.
+States: No customers, privacy restrictions.
+Navigation / backend: GET /customers.
+S18 | Customer profile & ledger
+Who uses it: Owner/Manager/Accountant
+Layout: Contact header, credit summary, invoices/payments timeline, due aging.
+Actions: Record receipt, share statement, set credit limit, remind (consented channel).
+Fields / validation: Allocations not above open balances, date filters.
+States: Credit exceeded, overpayment/advance.
+Navigation / backend: GET /customers/{id}/ledger.
+S19 | Record customer receipt
+Who uses it: Authorized staff
+Layout: Amount, payment method, reference, invoice allocation list and unapplied remainder.
+Actions: Save receipt, auto-allocate oldest, print/share receipt.
+Fields / validation: Positive amount, unique gateway reference, max allocation.
+States: Duplicate ref, pending gateway, success.
+Navigation / backend: POST /payments and allocations.
+S20 | Suppliers list / details
+Who uses it: Owner/Manager/Accountant
+Layout: Supplier card, unpaid amount, latest purchases, one-tap call if allowed.
+Actions: New supplier, supplier ledger, pay supplier.
+Fields / validation: GSTIN optional, avoid duplicate supplier names.
+States: Empty supplier list, overdue.
+Navigation / backend: GET/POST /suppliers.
+S21 | New purchase / receive stock
+Who uses it: Owner/Manager
+Layout: Vendor bill header, line item editor, purchase tax, receive qty, amount owed.
+Actions: Save draft, post received stock, record payment.
+Fields / validation: Duplicate supplier invoice warning, product qty, supplier.
+States: Draft, received, rejected, partial received (phase 2).
+Navigation / backend: POST /purchases/receive.
+S22 | Reports overview
+Who uses it: Owner/Manager/Accountant
+Layout: Sales tiles; tabs Sales, Profit, Stock, Dues, Purchases, GST Summary; filters and export.
+Actions: Change dates, export CSV/PDF, drill-down.
+Fields / validation: Timezone-aware date inclusive ranges.
+States: No data, loading, export queued.
+Navigation / backend: GET /reports/*.
+S23 | Sales & profitability report
+Who uses it: Owner/Accountant
+Layout: Daily trend chart, top products, margin estimate, discount and tax totals.
+Actions: Filter categories, export.
+Fields / validation: Profit method documented (weighted average / known cost), returns reduce net sales.
+States: Insufficient cost data, high latency.
+Navigation / backend: GET /reports/sales.
+S24 | Notification center
+Who uses it: All roles scoped
+Layout: All / Unread segmented tabs, grouped by day, icon by event, concise deep link.
+Actions: Mark read, open relevant object, tune preference.
+Fields / validation: Notification data must pass authorization on open.
+States: No notifications, removed object, permission disabled.
+Navigation / backend: GET /notifications.
+S25 | Settings / business / team
+Who uses it: Owner; staff read-only where appropriate
+Layout: Sections Business, Tax, Invoice series, Staff, Security, Export, Subscription, Help.
+Actions: Edit allowed sections, invite, request export.
+Fields / validation: GST changes impact future docs, invitation expiry and roles.
+States: Unsaved changes, restricted action.
+Navigation / backend: GET/PATCH /settings, /members.
+S26 | Subscription / paywall
+Who uses it: Owner
+Layout: Plan comparison, current usage counters, renewal date and manage payment action.
+Actions: Start trial, upgrade, cancel renewal, download receipt.
+Fields / validation: Gateway verified on server via webhook, not client callback.
+States: Trial, active, grace, expired, failed renewal.
+Navigation / backend: GET /subscription; payment webhook.
+S27 | Reports / GST export detail
+Who uses it: Owner/Accountant
+Layout: Taxable value by slab/state, sales and purchase tax summary, warnings.
+Actions: Download CSV, reconcile period, view exclusions.
+Fields / validation: Not a GST return filing or legal certification.
+States: No GST registration, missing HSN, excluded void invoices.
+Navigation / backend: GET /reports/gst-summary.
+S28 | Global search / activity / support
+Who uses it: All scoped
+Layout: Search products, invoices, customers; recent activity; help FAQ, issue reporting.
+Actions: Jump to record, report issue, access guide.
+Fields / validation: Prevent search leakage across organizations.
+States: No match, retry, unauthorized.
+Navigation / backend: GET /search, /support.
+Key page wireframes (text layout)
+HOME / DASHBOARD             [Shop ▼]   [Bell]Hello, Owner                      Today ▼[Sales Rs 24,850]   [Collected Rs 18,200][Outstanding]       [Low stock 7]Sales trend [7-day bar chart]             Recent Invoices   [View all]              Low-stock items   [Reorder]               [Home] [Sales] [Inventory] [More]   [+ Sale]
+NEW SALE                                 [Scan][Search product name / SKU / barcode...][Item]   Price / Unit   In stock   [+][Item]   Price / Unit   In stock   [+]----------------  CART  -----------------3 items        Tax included             Subtotal   Discount   Tax               TOTAL Rs 1,850                         [Choose Customer]     [Proceed to Payment]
+INVOICE DETAIL   #INV/26-27/000123   [Issued]Customer: Green Star Traders   GSTIN: ...Date / place of supply / terms            Line  Qty  Rate   Tax   Total            Payment Status: Part-paid                Total  3,500     Paid 2,000  Due 1,500[Receive Payment] [Share PDF] [Return]    
+07 | Backend architecture
+Recommended deployment topology
+Flutter Android/iOS Client  | Supabase Auth JWT / publishable key  | read-only data views via RLS-protected Supabase Data API  | business commands -> authenticated Edge Functions  vSupabase Edge Functions -> Postgres RPC transactional procedures  |                         |  |                         +--> PG tables + triggers + audit + outbox  +--> Private Storage (invoice PDFs)  +--> Notification dispatcher -> FCM HTTP v1 -> device  +--> Payment gateway server-to-server verification (future)  +--> Job scheduler -> overdue/low-stock digests
+Clear responsibility boundaries
+Layer
+Responsibility
+Must NOT do
+Flutter UI
+Presentation, optimistic draft cart, local form validation, session state
+Own authoritative invoice numbering or stock math
+Supabase Auth
+User identity and session tokens
+Define tenant data permissions alone
+PostgreSQL + RLS
+Tenant data, constraints, ledger invariants, atomic transactions
+Expose service-role secret to mobile client
+Edge Functions
+Validate commands, authorize role, invoke RPC, integrate external services
+Trust posted organization_id without membership check
+Storage
+Product images and private invoice files, signed retrieval
+Publicly expose private financial documents
+FCM dispatcher
+Select recipients, send server-authenticated push, record outcomes
+Put private customer/account amounts in broad topics
+Backend convention
+Base URL (illustrative): https://<project-ref>.supabase.co/functions/v1/api/v1 ; published routes may instead be separate Edge Functions.
+Authorization: Bearer Supabase access JWT; X-Organization-Id required except onboarding; user membership checked against database.
+Idempotency-Key header is mandatory for issue, receive, adjust, pay, refund; persisted by org + action + key and payload hash.
+Correlation: X-Request-Id generated if absent; trace in logs and API error response.
+Pagination: cursor + limit (default 25, maximum 100); avoid unrestricted customer/invoice dumps.
+All timestamps ISO 8601 UTC in API; display merchant time zone and financial year as configured.
+Response body standard: {"data": ..., "meta": {"request_id": ...}}; errors {"error": {"code": ..., "message": ..., "details": ...}}.
+Database functions can use SECURITY DEFINER only with explicit search_path, least privilege and membership enforcement.
+08 | Database specification
+Entity relationship overview
+auth.users -> profiles -> organization_members -> organizations -> outletsorganizations -> customers / suppliers / products / invoice_seriesproducts -> product_prices / stock_balances / stock_movementsorganizations -> sales_invoices -> sales_invoice_items -> tax_linessales_invoices -> payment_allocations <- paymentsorganizations -> purchases -> purchase_items / supplier_paymentsorganizations -> notification_outbox -> notifications -> devicesorganizations -> subscriptions / audit_events / business_settings
+Data dictionary / table catalog
+Table
+Important columns (not exhaustive)
+Rule / relationship
+organizations
+id uuid PK, name, legal_name, tax_regime, gstin?, state_code, address jsonb, currency, timezone, status, created_at
+Tenant root; do not expose other organizations.
+profiles
+user_id uuid PK references auth.users, display_name, phone?, created_at
+No merchant financial data here.
+organization_members
+id, organization_id, user_id, role, status, invited_by, joined_at
+Unique(org,user); roles: owner/manager/cashier/accountant.
+outlets
+id, organization_id, name, code, state_code, address, is_default, active
+MVP creates one; future multiple.
+business_settings
+organization_id PK, invoice_template, allow_negative_stock, currency_rounding, receipt_footer, tax_config jsonb
+Merchant settings versioned / audited.
+invoice_series
+id, organization_id, financial_year, doc_type, prefix, next_seq, active
+Unique (org, doc_type, financial_year, prefix).
+categories
+id, organization_id, name, parent_id?, active
+Product hierarchy; optional parent.
+units
+id, organization_id?, code, description, decimal_precision
+UOM reference: pcs, kg, litre.
+products
+id, organization_id, type, sku, barcode?, name, category_id?, unit_id?, hsn_sac?, tax_code_id?, sale_price, purchase_price, reorder_level, active
+Money numeric; no physical inventory for service.
+product_prices
+id, organization_id, product_id, outlet_id?, price_list, amount, valid_from, valid_to
+Optional price history; MVP can use products.sale_price.
+stock_balances
+organization_id, outlet_id, product_id, quantity_on_hand, reserved_qty, updated_at
+Unique(org,outlet,product); cached materialization.
+stock_movements
+id, organization_id, outlet_id, product_id, movement_type, signed_qty, unit_cost?, source_type, source_id, idempotency_key, created_by, created_at
+Immutable source of stock truth.
+stock_adjustments
+id, organization_id, outlet_id, status, reason, count_ref?, approved_by?, created_by, created_at
+Adjustment header; optional line child.
+customers
+id, organization_id, name, phone?, email?, gstin?, billing_address, shipping_address, state_code, credit_limit?, active
+Protect PII; optional walk-in customer.
+suppliers
+id, organization_id, name, phone?, gstin?, address, payment_terms_days, active
+Unique logical records within organization.
+sales_invoices
+id, organization_id, outlet_id, customer_id?, series_id, invoice_number?, status, invoice_date, due_date?, tax_regime_snapshot, supplier_snapshot jsonb, recipient_snapshot jsonb, subtotal, discount_total, taxable_total, tax_total, grand_total, paid_total, balance_due, created_by, issued_at
+Immutable issued amounts; monetary CHECK constraints.
+sales_invoice_items
+id, organization_id, invoice_id, product_id?, description, sku_snapshot, hsn_sac_snapshot, uom_snapshot, qty, unit_price, discount_amount, taxable_value, cgst, sgst, igst, cess, total
+Invoice line snapshots; positive qty.
+sales_returns
+id, organization_id, original_invoice_id, credit_note_number, return_date, reason, totals, status
+Linked credit note and reversal.
+sales_return_items
+id, organization_id, return_id, original_invoice_item_id, qty, tax_snapshot, amount, restock
+Return cap invariant.
+payments
+id, organization_id, customer_id?, direction, payment_date, amount, method, provider_reference?, status, created_by, created_at
+Customer receipts / refunds; gateway status separately.
+payment_allocations
+id, organization_id, payment_id, invoice_id, amount, created_at
+Unique pair or split rules; allocation integrity.
+purchases
+id, organization_id, outlet_id, supplier_id, supplier_bill_no, bill_date, status, subtotal, tax_total, grand_total, paid_total, balance_due, posted_at
+Receive creates stock-in movement.
+purchase_items
+id, organization_id, purchase_id, product_id, qty, unit_cost, discount, tax_code_snapshot, taxable_amount, tax_total, line_total
+Unit cost for valuation.
+supplier_payments
+id, organization_id, supplier_id, purchase_id?, amount, method, reference?, paid_at
+Optional allocation table for split supplier payments.
+tax_codes
+id, organization_id?, code, description, cgst_rate, sgst_rate, igst_rate, cess_rate, effective_from, effective_to
+Tax rates effective-dated and reviewed by tax professional.
+tax_lines
+id, organization_id, invoice_id, invoice_item_id?, tax_type, rate, taxable_base, tax_amount
+Historical summary / export.
+notifications
+id, organization_id, recipient_user_id, type, title, body, entity_type, entity_id, read_at?, created_at
+Private per-user in-app feed.
+device_registrations
+id, user_id, installation_id, fcm_token_encrypted?, platform, active, last_seen_at
+Protect token; user-to-installation mapping.
+notification_outbox
+id, organization_id, event_key, event_type, payload jsonb, state, attempts, next_attempt_at, created_at
+Transactional outbox with deduplication.
+notification_deliveries
+id, outbox_id, user_id, device_id, provider_message_id?, state, last_error?, attempted_at
+Retry and provider response.
+notification_preferences
+id, organization_id, user_id, event_type, in_app_enabled, push_enabled
+Respect roles, permission, opt-out.
+subscriptions
+id, organization_id, plan_id, status, period_start, period_end, grace_until?, gateway_customer_id?
+Merchant entitlement source.
+plans
+id, code, name, limits jsonb, price_inr, active
+Plan entitlements; owner-only billing UI.
+audit_events
+id, organization_id, actor_user_id, action, table_name, record_id, before jsonb?, after jsonb?, request_id, created_at
+Immutable security/audit log.
+idempotency_records
+id, organization_id, command_name, idempotency_key, request_hash, response jsonb, created_at
+Unique(org,command,key).
+file_assets
+id, organization_id, entity_type, entity_id, bucket, path, mime, sha256, created_at
+Private invoice PDF metadata / signed URL policy.
+Database indexes and integrity constraints
+Foreign keys must include organization_id consistency; prefer composite foreign keys or explicit trigger checks where a child references a parent.
+Indexes: sales_invoices(org_id, invoice_date desc), (org_id, customer_id, status), products(org_id, lower(name)), stock_movements(org_id, outlet_id, product_id, created_at), notifications(recipient_user_id, read_at).
+Unique indexes: organization_members(org_id,user_id), products(org_id,sku) WHERE sku IS NOT NULL, sales_invoices(org_id,invoice_number), device_registrations(user_id, installation_id).
+CHECK: quantities > 0 on invoice/purchase lines; amounts >= 0; status in controlled enum or validated lookup; payment allocation <= unallocated amount in transaction.
+Soft archive for catalog/contacts; hard delete prohibited for issued transactional documents; audit retention per legal/business policy.
+Trigger-based balance maintenance inside SQL transaction; do not update stock_balances directly from Flutter.
+RLS policy pattern (conceptual SQL)
+alter table public.products enable row level security;create policy product_read on public.productsfor select to authenticatedusing (exists (  select 1 from public.organization_members m  where m.organization_id = products.organization_id    and m.user_id = (select auth.uid()) and m.status = 'active'));-- Apply equivalent checks to every exposed tenant table.-- Revoke broad default grants; do not grant billing writes to clients.-- For protected financial mutations, use an authenticated Edge Function-- invoking a permission-checked, transactional database RPC.
+Important: actual RLS policies, grants and RPC authorization must be separately code-reviewed and tested for tenant isolation; this snippet is intentionally a teaching pattern, not a complete deployment migration. Supabase now emphasizes both database grants and RLS.
+Data retention, exports and snapshots
+Save business and customer snapshots on issued invoices; future edits must not change old PDFs or tax records.
+PDF files use private storage buckets and short-lived signed URLs; export attempts audited.
+Back up PostgreSQL according to chosen Supabase plan; test restoration and PITR availability rather than assuming it is included.
+Set retention schedules for invoices, transactions, payment evidence and audit; obtain legal review for applicable record-keeping periods.
+GDPR/India DPDP applicability and operational data handling need legal validation; provide data request/closure workflows.
+09 | API specification
+Below are proposed application routes, not APIs already deployed in Supabase. They can be implemented using one routed Edge Function or separate Edge Functions. Read-only catalog and reports can alternatively use safe views/RPC under RLS; invoice issuance and financial mutations must use server-side transactions.
+Organization / auth / settings
+Method / route
+Purpose / authorization
+Key request and response
+GET /v1/me
+Any authenticated; profile, memberships
+Response: user + authorized organizations
+POST /v1/orgs/onboard
+Authenticated; first-business creation
+name, tax_regime, address -> org_id, outlet_id
+GET /v1/orgs/{id}
+Active member
+Organization and settings
+PATCH /v1/orgs/{id}
+Owner
+Change metadata/settings; audit
+GET /v1/orgs/{id}/members
+Owner
+List roles/invitations
+POST /v1/orgs/{id}/invites
+Owner
+email, role -> pending invite
+PATCH /v1/members/{id}
+Owner
+role / status; revoke
+GET /v1/settings
+Active member
+Tax, invoice, outlet, app settings
+PATCH /v1/settings
+Owner
+Validated versioned changes
+Catalog / inventory
+Method / route
+Purpose / authorization
+Key request and response
+GET /v1/products
+Member (filtered)
+query, category, cursor, limit
+POST /v1/products
+Owner/manager
+product payload -> product
+GET /v1/products/{id}
+Member
+Product, prices, stock
+PATCH /v1/products/{id}
+Owner/manager
+Mutable master fields; audit
+POST /v1/products/import
+Owner/manager
+CSV validation and dry run
+GET /v1/stock/balances
+Member
+outlet_id, low_stock filter
+GET /v1/stock/movements
+Owner/manager/accountant
+product_id, date, cursor
+POST /v1/stock/adjustments
+Owner/manager approved
+product_id, delta or counted_qty, reason
+GET /v1/stock/low
+Owner/manager
+threshold, supplier references
+Sales / receipts
+Method / route
+Purpose / authorization
+Key request and response
+POST /v1/sales/drafts
+Sales staff
+customer_id, items, discounts -> draft
+PATCH /v1/sales/drafts/{id}
+Draft creator / authorized
+rev, line updates -> draft
+POST /v1/sales/{id}/quote
+Sales staff
+Authoritative totals / stock eligibility
+POST /v1/sales/{id}/issue
+Sales staff; idempotent
+draft_version, payments? -> issued invoice
+GET /v1/sales
+Member by permission
+date/status/customer search
+GET /v1/sales/{id}
+Member by permission
+Invoice detail and payment list
+GET /v1/sales/{id}/pdf
+Member by permission
+Signed URL or protected PDF stream
+POST /v1/sales/{id}/returns
+Owner/authorized manager
+items, qty, reason, disposition
+POST /v1/payments
+Authorized role
+customer_id, amount, method, ref
+POST /v1/payments/{id}/allocate
+Authorized role
+[{invoice_id, amount}] -> balances
+Purchases / contacts / reports
+Method / route
+Purpose / authorization
+Key request and response
+GET/POST /v1/customers
+Member / authorized writer
+Search / create + duplicates
+GET /v1/customers/{id}/ledger
+Owner/manager/accountant
+Invoice/receipt lines, running total
+GET/POST /v1/suppliers
+Authorized
+Search / create supplier
+POST /v1/purchases
+Owner/manager
+Create purchase draft
+POST /v1/purchases/{id}/receive
+Owner/manager; idempotent
+Post receipt and stock-in
+POST /v1/supplier-payments
+Authorized
+Amount, allocations, method
+GET /v1/dashboard/summary
+Role-filtered
+date range, outlet -> aggregates
+GET /v1/reports/sales
+Owner/manager/accountant
+group_by, from, to; result
+GET /v1/reports/stock
+Owner/manager/accountant
+valuation, low stock, movement
+GET /v1/reports/receivables
+Owner/manager/accountant
+aging buckets + customers
+GET /v1/reports/gst-summary
+Owner/accountant
+Tax slab breakdown / exclusions
+Notifications / support / subscription
+Method / route
+Purpose / authorization
+Key request and response
+POST /v1/devices/register
+Authenticated
+installation_id, token/FID supported strategy
+DELETE /v1/devices/{id}
+Device owner
+Deactivate/unlink registration
+GET /v1/notifications
+Authenticated member
+cursor, unread_only
+POST /v1/notifications/{id}/read
+Notification owner
+read_at
+PATCH /v1/notification-preferences
+Notification owner
+event_type, channels enabled
+POST /v1/exports
+Owner/accountant
+Report type, dates -> job
+GET /v1/subscriptions
+Owner
+Plan, entitlements, usage
+POST /v1/subscriptions/checkout
+Owner
+Gateway checkout session
+POST /v1/webhooks/payment-provider
+Signed provider requests only
+Verify signature, set subscription
+Sample: issue invoice request
+POST /v1/sales/{draft_id}/issueAuthorization: Bearer <supabase_access_token>X-Organization-Id: <organization_uuid>Idempotency-Key: sale-<client-generated-uuid>{  "draft_version": 3,  "outlet_id": "<uuid>",  "customer_id": "<uuid-or-null>",  "payment_intent": [{"method":"cash","amount":"300.00"}]}200 / 201 {"data":{"invoice_id":"<uuid>","invoice_number":"INV/26-27/000123", "grand_total":"1250.00","paid_total":"300.00","balance_due":"950.00", "status":"partially_paid"},"meta":{"request_id":"<id>"}}
+Sample: validation error / retry
+409 {"error":{"code":"INSUFFICIENT_STOCK",  "message":"Not enough stock to issue this invoice",  "details":[{"product_id":"<uuid>","requested":"5", "available":"3"}]},  "meta":{"request_id":"<id>"}}409 {"error":{"code":"IDEMPOTENCY_CONFLICT", "message":"This retry key was used with different input"}}
+HTTP status and event expectations
+200/201 success, 202 queued job, 400 bad payload, 401 unauthenticated, 403 no permission, 404 not found inside tenant, 409 concurrency/stock/idempotency conflict, 422 domain validation, 429 rate limit, 500 unexpected.
+Use optimistic version on editable drafts; a stale draft version yields 409 DRAFT_VERSION_CONFLICT and the client offers refresh.
+Never rely on client-generated totals, account balance, tax value, invoice number, user role or organization membership.
+Receipt/invoice issue should enqueue durable events transactionally; external push/PDF may continue independently without undoing the booked invoice.
+10 | GST-aware invoicing and calculation
+Compliance distinction and document types
+The app will produce structured GST-aware tax invoices or bills of supply when appropriate, but it does NOT automatically produce government-registered electronic invoices (IRN / signed QR). Applicable eligible taxpayers must separately register relevant invoices through an authorized IRP workflow. In the referenced official notification, the e-invoicing mandate applies from INR 5 crore annual aggregate turnover for applicable taxpayers/transactions (effective 1 August 2023); published IRP guidance also states a 30-day reporting limit from 1 April 2025 for AATO INR 10 crore or more. Verify current notifications and merchant eligibility before activating any compliance claim.
+A GST professional should verify unregistered merchant invoices, composition scheme, reverse charge, exempt supplies, delivery state, mixed tax rates, intra- vs interstate supplies, refunds and required wording before launch.
+Invoice legal/tax information checklist
+Supplier legal name, address, GSTIN when registered; unique serial number (Rule 46 constraints), issue date and FY.
+Buyer name/address, GSTIN/UIN when required; delivery address and place of supply/state code.
+HSN/SAC, description, unit, quantity, taxable value, discount, per-rate taxes and cess as applicable.
+Tax split: CGST + SGST/UTGST vs IGST as determined by place-of-supply rules, not just customer phone state.
+Grand total, amount paid, balance due, reverse-charge indication where applicable, signature/digital signature requirements as reviewed.
+For composition/exempt supplies, issue appropriate bill of supply rather than charging GST as a regular tax invoice.
+If actual IRP integration is enabled later: retain IRN, acknowledgement time, signed payload and signed QR returned by authorized IRP; distinguish from ordinary payment QR.
+Deterministic math: one line worked example
+Illustration only: same-state taxable sale of 2 units at INR 500 each, 10% line discount, exclusive GST 18%. Gross = 2 × 500 = 1,000. Discount = 100. Taxable = 900. CGST 9% = 81; SGST 9% = 81; total tax = 162; line total = INR 1,062. For an applicable interstate supply, the example would normally allocate 18% IGST = INR 162 rather than CGST/SGST. Real tax classification and current rates must come from approved configuration.
+Calculation engine contract
+Compute from immutable decimal inputs on the server with documented rounding mode and per-line versus invoice-level calculation policy.
+Support price inclusive/exclusive of GST, line-level discount and overall discount apportionment.
+Rate lookup keyed by tax category, effective date, supply type, and merchant regime; retain original applied rate on invoice lines.
+Return tax_breakdown by CGST / SGST / IGST / cess and taxable base per slab; avoid floating-point surprises.
+For refunds / credit notes, derive original tax context and line caps; do not apply today's changed rates to historical reversals.
+Provide an accountant-facing mismatch/reconciliation view and export; do not label exports as GST returns filed.
+11 | Firebase Cloud Messaging and alerts
+High-level setup and trusted send flow
+Configure a Firebase project; add Android app (package/application ID) and iOS app later; initialize Flutter firebase_core + firebase_messaging.
+Request runtime notification permission where required; explain the value before prompting.
+Obtain app registration token/installation identity using the supported SDK for the deployed version; handle token refresh, device reinstall, logout and multi-device sessions.
+Send registration to authenticated backend and associate it with user + installation; do not use tokens as authentication credentials.
+DB event -> outbox -> scheduled Edge Function/worker -> FCM HTTP v1 with server-side OAuth2 credentials -> delivery log.
+Never embed Firebase service-account private key, FCM authorization secret or Supabase service role in the Flutter app.
+Handle foreground, background and terminated navigation to the correct screen; always recheck tenant authorization on deep link.
+Notification event matrix
+Event key
+Recipient
+Trigger / delivery policy
+LOW_STOCK
+Owner, manager
+Daily digest if below reorder threshold; in-app + opted-in push
+PAYMENT_RECEIVED
+Owner, collecting staff
+On confirmed receipt; immediate / dedupe
+INVOICE_OVERDUE
+Owner, manager
+Daily due digest; customer messages only via consented separate channel
+STOCK_ADJUST_APPROVAL
+Owner
+Pending high-risk adjustment; immediate
+REFUND_APPROVAL
+Owner
+When cashier/manager requests refund
+DAILY_SALES_SUMMARY
+Owner
+Local-time daily configured summary
+PURCHASE_RECEIVED
+Owner, manager
+Receipt posted confirmation
+SUBSCRIPTION_EXPIRY
+Owner
+7/3/1-day pre-expiry as configured
+STAFF_INVITE
+Invited user
+On accepted registration/in-app channel available
+SYSTEM_MAINTENANCE
+Affected users
+Relevant service notice only
+Example notification payload
+{  "message": {    "token": "<device_fcm_token>",    "notification": {"title": "Low stock alert", "body": "3 items need attention"},    "data": {"type": "LOW_STOCK", "org_id": "<uuid>",             "route": "/inventory/low-stock", "event_id": "<uuid>"},    "android": {"priority": "high"}  }}
+Notification failure cases and safety
+A sent/accepted FCM request does not prove user saw it. Keep in-app durable notification and read_at separately.
+FCM 404/unregistered and invalid token responses deactivate device; transient 429/5xx use capped exponential retries.
+Deduplicate outbox by event_key; use delivery table uniqueness for user/device/event combination.
+No sensitive invoice PDFs, passwords, GSTINs or bank references inside push payload.
+Business access revoked -> token may remain linked to user but events to that organization must stop immediately.
+Use direct user/device targeting; do not use public topics for merchant-private financial events.
+FCM is for app-device alerts, not permission to send marketing SMS/WhatsApp to a customer.
+12 | Non-functional and security requirements
+Performance, availability and operational targets
+Area
+Target / design requirement
+Performance
+p95 dashboard read < 1.5 sec normal network; p95 invoice issue < 3 sec excluding PDF sharing
+Reliability
+Exactly-once logical invoice issue with idempotent commands and transactional postings
+Device support
+Target current supported Android versions and iOS via Flutter; test low-end memory devices
+Offline
+MVP: readable cached data/unsaved draft warning; no offline invoice number generation
+Recovery
+Documented backup frequency, restore drill, alerting and incident response
+Scalability
+Index organization_id filters, paginate, pre-aggregate reports and archive logs
+Observability
+Crash reporting, request traces, slow query logs, payment/FCM error dashboards
+Privacy
+Minimal customer PII; encryption in transit and at rest via providers
+Accessibility
+Screen reader labels, text scaling, clear focus, error messages, hit areas
+Testing
+Unit + widget + API integration + E2E + RLS tenant-breakout tests
+Threat model and mitigation
+Cross-tenant data leak: RLS + explicit grants + org membership checks + tests with two organizations.
+Privilege escalation: owner role assigned only server-side; access denied on user-supplied role or org ID.
+Financial fraud/double charge: unique external references, signed gateway webhooks, audit and idempotency.
+Invoice tampering: PDF snapshots and immutable issued invoice lines; corrections as linked credit notes.
+Unauthorized downloads: private buckets, signed URLs, MIME limits, path tenant scoping and audit.
+Brute force/abuse: Auth controls, rate limiting, CAPTCHA or abuse controls if needed, alerts.
+Information leakage in logs/push: redact tokens, emails, payment PII and secret values.
+SQL / API input attacks: parameterized queries, typed validation, schema-level constraints.
+Lost device: session revocation, short-lived signed URLs, device deregistration.
+Security QA must-test scenarios
+Login as Org A cashier; request Org B invoice by guessed UUID -> 404 or 403, never data.
+Org A accountant modifies own role to owner -> rejected.
+Same invoice issue command sent 3x concurrently -> one invoice number, one stock decrease.
+Expired subscription cannot bypass plan limit by calling API directly.
+Client modifies invoice tax total to zero -> server ignores/overrides and recalculates.
+Webhook signature invalid -> no payment state change.
+Logged out / removed member receives deep link -> must re-auth and be denied.
+Cross-org storage path read -> denied / signed URL unavailable.
+13 | QA, acceptance and UAT
+Test strategy
+Unit: decimal tax engine (inclusive/exclusive), discounts, cross-state split, rounding, returns, payment balances, invoice series.
+Widget/UI: form validation, large text, keyboard overflow, empty/error states, navigation, role-based action visibility.
+Integration: Supabase Auth, RLS, RPC, Storage, FCM device registration, Edge Function auth.
+E2E: signup -> product -> purchase -> sale -> partial payment -> ledger -> export -> return.
+Concurrency: two cashiers sell last item and two requests issue same draft; invariant must hold.
+UAT: at least 2 merchant types, 10 real-ish products each, 30+ invoice cycles, accountant review of exports.
+Acceptance test matrix
+Case
+Test input / action
+Expected result
+UAT-01
+Owner creates business / staff invitation
+Correct organization and role; welcome screen
+UAT-02
+Create SKU and purchase 10 pieces
+Stock = 10; purchase linked ledger movement
+UAT-03
+Sell 3 pieces with partial payment
+Stock = 7; payment applied; balance due accurate
+UAT-04
+Two staff try to sell final unit concurrently
+One transaction succeeds; one receives stock conflict
+UAT-05
+Same issue request retried
+Single invoice and stock movement
+UAT-06
+Tax rate snapshot then change product rate
+Old invoice unchanged; new invoice uses approved new rate
+UAT-07
+Return 1 piece sale line
+Credit note and optionally stock +1; no over-return
+UAT-08
+Org B tries direct read of Org A customer
+No access
+UAT-09
+FCM token revoked/unregistered
+No crash; inactive registration; notification remains in-app
+UAT-10
+Download report with date filters
+Totals reconcile to posted transactions
+UAT-11
+Disable notification permission
+All app workflows still function
+UAT-12
+Out-of-scope / bill-of-supply GST regime
+Uses correct document type; tax not collected incorrectly
+Definition of done
+A feature is complete when UI design, loading/empty/error states, database migration, server permission enforcement, API contract tests, audit entry, unit/integration coverage, analytics events, and acceptance criteria are verified; security or GST-critical flows also require peer review.
+14 | Delivery phases, operations and revenue
+Recommended execution plan
+Phase
+Deliverables
+Exit criterion
+0. Discovery
+Merchant interviews, document type/tax review, wireframes, pricing hypothesis
+Validated 3 core merchant flows
+1. Foundation
+Flutter shell/design system, Supabase project, Auth, organizations, roles, RLS
+Tenant isolation tests pass
+2. Catalog + stock
+Product CRUD, purchase receipt, stock movements, low stock
+Reconcile sample stock
+3. Sales + receipts
+POS, invoice issue/PDF, partial payments, customer ledger
+Full UAT sale-to-cash works
+4. Reports + notifications
+Dashboard, export, FCM, outbox, audit, settings
+Alerts and reports reliable
+5. Pilot / release
+QA, backups, monitoring, policy pages, stores, support
+Pilot merchants accept and onboard
+6. Enhancements
+Barcode, stocktake approvals, multi-outlet, customer messaging, GST IRP integrations
+Separate business case and tax review
+Flutter clean architecture folder blueprint
+lib/  app/                 // app.dart, bootstrap.dart, router/, theme/  core/                // env/, errors/, networking/, widgets/, utils/  shared/              // models/, providers/, formatting/, permissions/  features/    auth/              // data/, domain/, presentation/    onboarding/    dashboard/    catalog/    inventory/    sales/    purchases/    customers/    suppliers/    payments/    reports/    notifications/    settings/    subscriptions/  integrations/        // supabase/, firebase/, printing/, sharing/  l10n/                // English, Telugu; later Hinditest/                   // unit/, widget/integration_test/supabase/               // migrations/, functions/, tests/, seed.sql
+Suggested engineering decisions
+Riverpod for state; go_router for navigation; Freezed/json_serializable optionally for typed request/response models.
+Repository/use-case boundaries: UI -> controller/provider -> domain use case -> repository -> Supabase API.
+Use a single currency formatting utility and decimal-safe server totals.
+Separate dev/stage/prod Supabase projects and Firebase app configurations.
+Use GitHub Actions or similar CI for formatting, analyze, unit tests, SQL migration tests, build artifacts.
+Start Android-first for merchant pilot; keep iOS platform code ready and test printer/permissions separately.
+Pilot merchant / business model validation
+Interview 10–20 shops: current invoice frequency, stock record method, credit sales, GST registration, printer models, monthly willingness to pay.
+Pilot 2–3 distinct merchant types before adding advanced modules.
+Track active invoices per shop, returns/errors, onboarding abandonment, report demand, retention and service costs.
+Subscription price examples earlier are hypotheses; adjust using actual willingness-to-pay and Supabase/FCM/PDF/AI/support costs.
+Build onboarding, tutorial data and CSV imports so switching from a register or spreadsheet is practical.
+Operational runbook checklist
+Provision separate environments and secure secret storage; rotate keys, restrict dashboard access.
+Monitor Supabase quotas, database CPU, storage, slow SQL, Edge Function errors and audit anomalies.
+Configure FCM sender credentials server-side, token hygiene, push opt-out and dispatch queue retries.
+Publish privacy policy, support contact, deletion policy, subscription terms and merchant data export method.
+Set up backup/restore testing, invoice numbering retention, business continuity and support escalation.
+Store release builds with version numbers, test payments/exports in sandbox and production verification plan.
+15 | Requirements traceability and open decisions
+Business objective
+Key FR / screens
+Acceptance evidence
+BR-01 Sales digitization
+FR-011..017; S05..S11
+UAT-03..07
+BR-02 Stock control
+FR-005..010, 019; S12..S16
+UAT-02, 04
+BR-03 Collections
+FR-013,015,023,024; S17..S19
+Customer ledger reconciliation
+BR-04 Tax/audit
+FR-014,017,027,029; S09, S27
+Accountant review / UAT-06,12
+BR-05 Multi-outlet extensibility
+Outlets + org tenancy schema
+Scope / security review
+BR-06 SaaS subscription
+FR-028; S26
+Entitlement enforcement
+BR-07 Usability
+UX design + S01..S28
+Pilot task completion
+BR-08 Data protection
+FR-003,027,031; RLS
+UAT-08 + security test suite
+Open decisions to confirm before coding
+Product brand/name and whether storefronts are exclusively India based.
+Whether app is one outlet initially or multi-outlet from first release.
+Merchant GST regimes supported in v1, and CA-approved compliance checklist.
+Thermal printers/connection types (Bluetooth, USB, network) and PDF page templates.
+Negative-stock policy, weighted-average vs FIFO costing, and return stock disposition.
+Payment gateway and plan billing implementation, including app-store policy checks for subscriptions.
+Email vs mobile OTP sign-in, transactional SMS/WhatsApp consent and provider.
+Offline POS requirement: if yes, invoice sequencing/sync architecture must be redesigned.
+Migration/import format for existing stock and customer opening balances.
+Whether barcode scanner and purchase returns are MVP or phase 2.
+Reference documentation and verification links
+CBIC CGST Rule 46 - tax invoice particulars: https://taxinformation.cbic.gov.in/content-page/explore-rules/1000136/1000001
+GST Council e-invoicing notification 10/2023: https://www.gstcouncil.gov.in/node/4365
+IRP advisory - revised 30-day reporting limit: https://einvoice6.gst.gov.in/content/revised-time-limit-for-e-invoice-reporting-for-businesses-with-aato-of-%E2%82%B910-crores-above/
+CBIC FAQ - bill of supply vs tax invoice: https://cbic-gst.gov.in/hindi/sectoral-faq.html
+Supabase - securing data and RLS: https://supabase.com/docs/guides/database/postgres/row-level-security
+Supabase - securing your data: https://supabase.com/docs/guides/database/secure-data
+Supabase - database webhooks: https://supabase.com/docs/guides/database/webhooks
+Firebase - FCM Flutter receiving messages: https://firebase.google.com/docs/cloud-messaging/flutter/receive-messages
+Firebase - FCM HTTP v1 sending: https://firebase.google.com/docs/cloud-messaging/send/v1-api
+Firebase - FCM Flutter setup: https://firebase.google.com/docs/cloud-messaging/flutter/get-started
+References retrieved 05 November 2026. Product design choices in this specification are recommendations; statutory requirements, portal availability and API behavior may change. Verify before implementation.
+Developer handoff checklist
+Freeze merchant types, tax scope, role permissions and screen catalog.
+Create screen design / components / Material 3 theme and navigation.
+Provision Supabase dev and draft migrations + RLS/grants tests.
+Implement issue_sale, receive_purchase, record_payment and adjustment RPC with idempotency.
+Implement Edge Functions with JWT auth, organization access and input validation.
+Connect Flutter repositories/controllers to APIs; integrate PDF and secure private storage.
+Add Firebase registration, durable in-app notifications and outbox-based push.
+Finish reports, unit and E2E test suite, security audit and merchant pilot.

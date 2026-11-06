@@ -1,0 +1,33 @@
+{
+  "status": "proposed_not_activated",
+  "currency": "INR",
+  "users_include_owner": true,
+  "trial": {
+    "duration_days": 14,
+    "invoice_limit_total": 200,
+    "user_limit": 3,
+    "location_limit": 1
+  },
+  "paid_plans": [
+    {
+      "code": "starter",
+      "monthly_price": 199,
+      "annual_price": 1999,
+      "monthly_invoice_limit": 1000,
+      "user_limit": 2,
+      "location_limit": 1
+    },
+    {
+      "code": "business",
+      "monthly_price": 399,
+      "annual_price": 3999,
+      "monthly_invoice_limit": 5000,
+      "user_limit": 5,
+      "location_limit": 1
+    }
+  ],
+  "reminder_channels": ["email", "sms", "whatsapp"],
+  "messaging_allowances": "Not yet priced; provider usage must be metered separately.",
+  "expiry_policy": "Preserve viewing and exports; restrict new billing after expiry.",
+  "tax_display": "Tax treatment must be defined before paid checkout is enabled."
+}
