@@ -1,7 +1,38 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../domain/draft_repository.dart';
+import '../domain/pending_invoice_issue.dart';
 
 class SupabaseDraftRepository implements DraftRepository {
+  Future<void> _sendIssue(String function, Map<String, dynamic> params) async {
+    try {
+      await client.rpc(function, params: params);
+    } on PostgrestException catch (error) {
+      // These transaction errors occur after the command-receipt replay check.
+      // Transport failures, permission errors and unknown errors remain pending.
+      if (error.code == 'P0001' &&
+          const {
+            'INSUFFICIENT_STOCK',
+            'CREDIT_LIMIT_EXCEEDED',
+            'QUOTE_CHANGED',
+            'INVALID_DUE_DATE',
+            'PAYMENT_EXCEEDS_TOTAL',
+            'GUEST_REQUIRES_FULL_PAYMENT',
+            'INVALID_TENDERS',
+            'INVALID_TENDER_AMOUNT',
+            'INVALID_TENDER_METHOD_OR_REFERENCE',
+            'INVOICE_SERIES_REQUIRED',
+            'SERIES_EXHAUSTED',
+            'PRODUCT_NOT_FOUND',
+            'CUSTOMER_NOT_FOUND',
+            'OUTLET_NOT_FOUND',
+            'DRAFT_VERSION_CONFLICT',
+          }.contains(error.message)) {
+        throw InvoiceIssueRejected(error.message);
+      }
+      rethrow;
+    }
+  }
+
   @override
   Future<void> checkout(
     String requestId,
@@ -11,18 +42,15 @@ class SupabaseDraftRepository implements DraftRepository {
     String dueDate,
     List<Map<String, String>> tenders,
   ) async {
-    await client.rpc(
-      'checkout_sale',
-      params: {
-        'p_request_id': requestId,
-        'p_organization_id': organizationId,
-        'p_draft_id': draft.values['id'],
-        'p_version': draft.values['version'],
-        'p_expected_quote': quote,
-        'p_due_date': dueDate,
-        'p_tenders': tenders,
-      },
-    );
+    await _sendIssue('checkout_sale', {
+      'p_request_id': requestId,
+      'p_organization_id': organizationId,
+      'p_draft_id': draft.values['id'],
+      'p_version': draft.values['version'],
+      'p_expected_quote': quote,
+      'p_due_date': dueDate,
+      'p_tenders': tenders,
+    });
   }
 
   SupabaseDraftRepository(this.client);
@@ -133,16 +161,13 @@ class SupabaseDraftRepository implements DraftRepository {
     Map<String, dynamic> quote,
     String dueDate,
   ) async {
-    await client.rpc(
-      'issue_sales_invoice',
-      params: {
-        'p_request_id': requestId,
-        'p_organization_id': organizationId,
-        'p_draft_id': draft.values['id'],
-        'p_version': draft.values['version'],
-        'p_expected_quote': quote,
-        'p_due_date': dueDate,
-      },
-    );
+    await _sendIssue('issue_sales_invoice', {
+      'p_request_id': requestId,
+      'p_organization_id': organizationId,
+      'p_draft_id': draft.values['id'],
+      'p_version': draft.values['version'],
+      'p_expected_quote': quote,
+      'p_due_date': dueDate,
+    });
   }
 }

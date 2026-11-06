@@ -5,6 +5,12 @@ import '../../../integrations/supabase/supabase_provider.dart';
 import '../data/supabase_platform_plan_repository.dart';
 import '../domain/platform_plan_repository.dart';
 import '../data/suggested_plan_templates.dart';
+import '../data/shared_preferences_pending_plan_store.dart';
+import '../domain/pending_plan_draft.dart';
+
+final pendingPlanDraftStoreProvider = Provider<PendingPlanDraftStore>(
+  (ref) => SharedPreferencesPendingPlanStore(),
+);
 
 final suggestedPlanTemplatesProvider =
     FutureProvider.autoDispose<List<Map<String, String>>>(
@@ -64,7 +70,8 @@ class _PlansState extends ConsumerState<PlatformPlansScreen>
               onPressed: () async {
                 final saved = await Navigator.of(context).push<bool>(
                   MaterialPageRoute(
-                    builder: (_) => const PlatformPlanDraftScreen(),
+                    builder: (_) =>
+                        PlatformPlanDraftScreen(userId: widget.userId),
                   ),
                 );
                 if (saved == true && mounted) {
@@ -158,7 +165,8 @@ class _PlansState extends ConsumerState<PlatformPlansScreen>
 }
 
 class PlatformPlanDraftScreen extends ConsumerStatefulWidget {
-  const PlatformPlanDraftScreen({super.key});
+  const PlatformPlanDraftScreen({super.key, required this.userId});
+  final String userId;
   @override
   ConsumerState<PlatformPlanDraftScreen> createState() => _DraftState();
 }
@@ -191,8 +199,55 @@ class _DraftState extends ConsumerState<PlatformPlanDraftScreen> {
       key: TextEditingController(),
   };
   String interval = 'month';
-  bool busy = false;
+  bool busy = true;
+  bool restored = false;
   String? error, command, fingerprint;
+  @override
+  void initState() {
+    super.initState();
+    restore();
+  }
+
+  Future<void> restore() async {
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      final pending = await ref
+          .read(pendingPlanDraftStoreProvider)
+          .load(widget.userId);
+      if (!mounted) return;
+      if (pending != null) {
+        for (final entry in fields.entries) {
+          entry.value.text = '${pending.data[entry.key] ?? ''}';
+        }
+        interval = pending.data['billing_interval'] as String;
+        command = pending.requestId;
+        fingerprint = payload().toString();
+      }
+      setState(() {
+        busy = false;
+        restored = true;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => error =
+              'Unable to restore your pending draft. Retry when storage is available.',
+        );
+      }
+    }
+  }
+
+  Map<String, dynamic> payload() => {
+    for (final entry in fields.entries) entry.key: entry.value.text.trim(),
+    'billing_interval': interval,
+    'report_types': ['sales', 'purchases', 'payments'],
+    'trial_invoice_limit': fields['trial_invoice_limit']!.text.trim().isEmpty
+        ? null
+        : fields['trial_invoice_limit']!.text.trim(),
+  };
   @override
   void dispose() {
     for (final controller in fields.values) {
@@ -203,14 +258,7 @@ class _DraftState extends ConsumerState<PlatformPlanDraftScreen> {
 
   Future<void> save() async {
     if (busy || !form.currentState!.validate()) return;
-    final data = <String, dynamic>{
-      for (final entry in fields.entries) entry.key: entry.value.text.trim(),
-      'billing_interval': interval,
-      'report_types': ['sales', 'purchases', 'payments'],
-    };
-    if (fields['trial_invoice_limit']!.text.trim().isEmpty) {
-      data['trial_invoice_limit'] = null;
-    }
+    final data = payload();
     final current = data.toString();
     if (current != fingerprint) {
       fingerprint = current;
@@ -222,8 +270,12 @@ class _DraftState extends ConsumerState<PlatformPlanDraftScreen> {
     });
     try {
       await ref
+          .read(pendingPlanDraftStoreProvider)
+          .save(widget.userId, PendingPlanDraft(command!, data));
+      await ref
           .read(platformPlanRepositoryProvider)
           .createDraft(command!, data);
+      await ref.read(pendingPlanDraftStoreProvider).clear(widget.userId);
       if (mounted) Navigator.of(context).pop(true);
     } catch (_) {
       if (mounted) {
@@ -240,122 +292,154 @@ class _DraftState extends ConsumerState<PlatformPlanDraftScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Create inactive plan')),
-    body: SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Form(
-          key: form,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Saving creates an inactive draft. It does not change merchant subscriptions or collect payment.',
-              ),
-              const SizedBox(height: 16),
-              ref
-                  .watch(suggestedPlanTemplatesProvider)
-                  .when(
-                    loading: () => const LinearProgressIndicator(),
-                    error: (_, _) => TextButton(
-                      onPressed: () =>
-                          ref.invalidate(suggestedPlanTemplatesProvider),
-                      child: const Text('Retry suggested templates'),
+    body: !restored
+        ? Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (error == null) const CircularProgressIndicator(),
+                  if (error != null) ...[
+                    Text(error!),
+                    FilledButton(
+                      onPressed: restore,
+                      child: const Text('Retry draft recovery'),
                     ),
-                    data: (templates) => DropdownButtonFormField<int>(
-                      decoration: const InputDecoration(
-                        labelText: 'Suggested plan template (optional)',
-                      ),
-                      items: [
-                        for (var i = 0; i < templates.length; i++)
-                          DropdownMenuItem(
-                            value: i,
-                            child: Text(templates[i]['name']!),
+                  ],
+                ],
+              ),
+            ),
+          )
+        : SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Form(
+                key: form,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Saving creates an inactive draft. It does not change merchant subscriptions or collect payment.',
+                    ),
+                    const SizedBox(height: 16),
+                    ref
+                        .watch(suggestedPlanTemplatesProvider)
+                        .when(
+                          loading: () => const LinearProgressIndicator(),
+                          error: (_, _) => TextButton(
+                            onPressed: () =>
+                                ref.invalidate(suggestedPlanTemplatesProvider),
+                            child: const Text('Retry suggested templates'),
                           ),
+                          data: (templates) => DropdownButtonFormField<int>(
+                            decoration: const InputDecoration(
+                              labelText: 'Suggested plan template (optional)',
+                            ),
+                            items: [
+                              for (var i = 0; i < templates.length; i++)
+                                DropdownMenuItem(
+                                  value: i,
+                                  child: Text(templates[i]['name']!),
+                                ),
+                            ],
+                            onChanged: busy
+                                ? null
+                                : (index) => fillTemplate(templates[index!]),
+                          ),
+                        ),
+                    for (final entry in const {
+                      'code': 'Unique plan code',
+                      'name': 'Plan name',
+                      'price_inr': 'Price in INR',
+                      'monthly_invoice_limit': 'Invoices per month',
+                      'staff_limit': 'Users including owner',
+                      'location_limit': 'Locations',
+                      'monthly_reminder_limit': 'Reminders per month',
+                      'trial_invoice_limit':
+                          'Entire trial invoice cap (optional)',
+                    }.entries)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: TextFormField(
+                          controller: fields[entry.key],
+                          enabled: !busy,
+                          decoration: InputDecoration(labelText: entry.value),
+                          keyboardType: ['code', 'name'].contains(entry.key)
+                              ? TextInputType.text
+                              : const TextInputType.numberWithOptions(
+                                  decimal: true,
+                                ),
+                          validator: (value) {
+                            final text = value?.trim() ?? '';
+                            if (entry.key == 'code') {
+                              return RegExp(
+                                    r'^[a-z][a-z0-9_]{1,63}$',
+                                  ).hasMatch(text)
+                                  ? null
+                                  : 'Use 2–64 lowercase letters, numbers or underscores';
+                            }
+                            if (entry.key == 'name') {
+                              return text.isNotEmpty && text.length <= 120
+                                  ? null
+                                  : 'Enter a name up to 120 characters';
+                            }
+                            if (entry.key == 'price_inr') {
+                              return RegExp(
+                                    r'^\d+([.]\d{1,2})?$',
+                                  ).hasMatch(text)
+                                  ? null
+                                  : 'Enter a non-negative price with up to 2 decimals';
+                            }
+                            if (entry.key == 'trial_invoice_limit' &&
+                                text.isEmpty) {
+                              return null;
+                            }
+                            final amount = int.tryParse(text);
+                            return amount != null &&
+                                    amount >=
+                                        ([
+                                              'staff_limit',
+                                              'location_limit',
+                                            ].contains(entry.key)
+                                            ? 1
+                                            : 0) &&
+                                    amount <= 2147483647
+                                ? null
+                                : 'Enter a valid whole-number limit';
+                          },
+                        ),
+                      ),
+                    DropdownButtonFormField<String>(
+                      key: ValueKey(interval),
+                      initialValue: interval,
+                      decoration: const InputDecoration(
+                        labelText: 'Billing interval',
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'month',
+                          child: Text('Monthly'),
+                        ),
+                        DropdownMenuItem(value: 'year', child: Text('Annual')),
                       ],
                       onChanged: busy
                           ? null
-                          : (index) => fillTemplate(templates[index!]),
+                          : (value) => setState(() => interval = value!),
                     ),
-                  ),
-              for (final entry in const {
-                'code': 'Unique plan code',
-                'name': 'Plan name',
-                'price_inr': 'Price in INR',
-                'monthly_invoice_limit': 'Invoices per month',
-                'staff_limit': 'Users including owner',
-                'location_limit': 'Locations',
-                'monthly_reminder_limit': 'Reminders per month',
-                'trial_invoice_limit': 'Entire trial invoice cap (optional)',
-              }.entries)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: TextFormField(
-                    controller: fields[entry.key],
-                    enabled: !busy,
-                    decoration: InputDecoration(labelText: entry.value),
-                    keyboardType: ['code', 'name'].contains(entry.key)
-                        ? TextInputType.text
-                        : const TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) {
-                      final text = value?.trim() ?? '';
-                      if (entry.key == 'code') {
-                        return RegExp(r'^[a-z][a-z0-9_]{1,63}$').hasMatch(text)
-                            ? null
-                            : 'Use 2–64 lowercase letters, numbers or underscores';
-                      }
-                      if (entry.key == 'name') {
-                        return text.isNotEmpty && text.length <= 120
-                            ? null
-                            : 'Enter a name up to 120 characters';
-                      }
-                      if (entry.key == 'price_inr') {
-                        return RegExp(r'^\d+([.]\d{1,2})?$').hasMatch(text)
-                            ? null
-                            : 'Enter a non-negative price with up to 2 decimals';
-                      }
-                      if (entry.key == 'trial_invoice_limit' && text.isEmpty) {
-                        return null;
-                      }
-                      final amount = int.tryParse(text);
-                      return amount != null &&
-                              amount >=
-                                  ([
-                                        'staff_limit',
-                                        'location_limit',
-                                      ].contains(entry.key)
-                                      ? 1
-                                      : 0) &&
-                              amount <= 2147483647
-                          ? null
-                          : 'Enter a valid whole-number limit';
-                    },
-                  ),
+                    const Text(
+                      'Includes sales, purchase and cash-flow reports.',
+                    ),
+                    if (error != null) Text(error!),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: busy ? null : save,
+                      child: Text(busy ? 'Saving…' : 'Save inactive draft'),
+                    ),
+                  ],
                 ),
-              DropdownButtonFormField<String>(
-                key: ValueKey(interval),
-                initialValue: interval,
-                decoration: const InputDecoration(
-                  labelText: 'Billing interval',
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'month', child: Text('Monthly')),
-                  DropdownMenuItem(value: 'year', child: Text('Annual')),
-                ],
-                onChanged: busy
-                    ? null
-                    : (value) => setState(() => interval = value!),
               ),
-              const Text('Includes sales, purchase and cash-flow reports.'),
-              if (error != null) Text(error!),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: busy ? null : save,
-                child: Text(busy ? 'Saving…' : 'Save inactive draft'),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
-    ),
   );
 }

@@ -21,7 +21,8 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
     with WidgetsBindingObserver {
   List<BusinessNotification> rows = [];
-  bool busy = false, more = true, unreadOnly = false;
+  bool busy = false, more = false, unreadOnly = false;
+  String? openingId;
   String? error;
   @override
   void initState() {
@@ -43,9 +44,15 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
 
   Future<void> load({bool reset = false}) async {
     if (busy) return;
-    setState(() => busy = true);
+    setState(() {
+      busy = true;
+      error = null;
+      if (reset) {
+        rows = [];
+        more = false;
+      }
+    });
     try {
-      if (reset) rows = [];
       final page = await ref
           .read(notificationRepositoryProvider)
           .page(widget.organizationId, rows.length, unreadOnly);
@@ -66,6 +73,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
   }
 
   Future<void> open(BusinessNotification notification) async {
+    if (busy || openingId != null) return;
+    setState(() => openingId = notification.id);
     try {
       await ref
           .read(notificationRepositoryProvider)
@@ -102,22 +111,36 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
           ),
         );
       }
+    } finally {
+      if (mounted) setState(() => openingId = null);
     }
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Notifications')),
+    appBar: AppBar(
+      title: const Text('Notifications'),
+      actions: [
+        IconButton(
+          tooltip: 'Refresh notifications',
+          onPressed: busy || openingId != null ? null : () => load(reset: true),
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
+    ),
     body: SafeArea(
       child: RefreshIndicator(
-        onRefresh: () => load(reset: true),
+        onRefresh: () async {
+          if (openingId == null) await load(reset: true);
+        },
         child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           children: [
             SwitchListTile(
               title: const Text('Unread only'),
               value: unreadOnly,
-              onChanged: busy
+              onChanged: busy || openingId != null
                   ? null
                   : (value) {
                       setState(() => unreadOnly = value);
@@ -126,23 +149,34 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
             ),
             if (busy) const LinearProgressIndicator(),
             if (error != null)
-              TextButton(onPressed: () => load(), child: Text(error!)),
-            if (!busy && rows.isEmpty)
+              TextButton(
+                onPressed: openingId != null ? null : () => load(),
+                child: Text(error!),
+              ),
+            if (!busy && error == null && rows.isEmpty)
               const ListTile(title: Text('No notifications')),
             for (final notification in rows)
               Card(
                 child: ListTile(
-                  leading: Icon(
-                    notification.read
-                        ? Icons.drafts_outlined
-                        : Icons.mark_email_unread_outlined,
-                  ),
+                  leading: openingId == notification.id
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(),
+                        )
+                      : Icon(
+                          notification.read
+                              ? Icons.drafts_outlined
+                              : Icons.mark_email_unread_outlined,
+                        ),
                   title: Text(notification.title),
                   subtitle: Text(notification.body),
-                  onTap: () => open(notification),
+                  onTap: busy || openingId != null
+                      ? null
+                      : () => open(notification),
                 ),
               ),
-            if (more && !busy)
+            if (more && !busy && error == null)
               TextButton(
                 onPressed: () => load(),
                 child: const Text('Load more'),

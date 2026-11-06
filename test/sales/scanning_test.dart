@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_billing/features/sales/domain/draft_repository.dart';
 import 'package:smart_billing/features/sales/presentation/drafts_screen.dart';
 import 'package:smart_billing/integrations/scanning/barcode_scanner.dart';
@@ -19,6 +20,7 @@ class ScanSaleRepository implements DraftRepository {
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   testWidgets(
     'known scan selects product without posting sale; unknown scan keeps cart',
     (tester) async {
@@ -26,6 +28,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            saleActorIdProvider.overrideWithValue('actor'),
             draftRepositoryProvider.overrideWithValue(ScanSaleRepository()),
             barcodeScannerProvider.overrideWithValue((_) async => code),
           ],

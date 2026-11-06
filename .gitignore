@@ -20,4 +20,6 @@ ios/Flutter/flutter_export_environment.sh
 skills-lock.json
 .DS_Store
 *.log
+.local-db-validation/
+supabase/.temp/
 

@@ -453,7 +453,7 @@ reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',(select id::text from foundation_test_context where label='owner_a'),true);
 do $$
-declare invoice public.sales_invoices%rowtype;ledger jsonb;
+declare invoice public.sales_invoices%rowtype;ledger jsonb;statement jsonb;req uuid:=gen_random_uuid();
 begin
  select * into invoice from public.sales_invoices limit 1;
  ledger:=public.customer_ledger(invoice.organization_id,invoice.customer_id,current_date,current_date,0);
@@ -461,6 +461,29 @@ begin
  if jsonb_array_length(ledger->'entries')<>2 then raise exception 'FAIL ledger entries';end if;
  ledger:=public.customer_ledger(invoice.organization_id,invoice.customer_id,current_date+1,current_date+1,0);
  if (ledger->>'opening_balance')::numeric<>75.67 or jsonb_array_length(ledger->'entries')<>0 then raise exception 'FAIL ledger opening balance';end if;
+ statement:=public.create_customer_statement_export(req,invoice.organization_id,invoice.customer_id,current_date,current_date);
+ if (statement->>'closing_balance')::numeric<>75.67 or (statement->>'count')::integer<>2 then raise exception 'FAIL statement reconciliation';end if;
+ if statement<>public.create_customer_statement_export(req,invoice.organization_id,invoice.customer_id,current_date,current_date) then raise exception 'FAIL statement replay';end if;
+ if (select count(*) from public.report_exports where kind='customer_statement')<>1 then raise exception 'FAIL duplicate statement snapshot';end if;
+ if (select count(*) from public.audit_events where action='customer.statement_exported')<>1 then raise exception 'FAIL statement audit';end if;
+ perform public.record_receipt(gen_random_uuid(),invoice.organization_id,invoice.customer_id,'1',current_date,'cash',null,'[]'::jsonb);
+ if statement<>public.create_customer_statement_export(req,invoice.organization_id,invoice.customer_id,current_date,current_date) then raise exception 'FAIL statement snapshot changed';end if;
+ ledger:=public.create_customer_statement_export(gen_random_uuid(),invoice.organization_id,invoice.customer_id,current_date,current_date);
+ if (ledger->>'closing_balance')::numeric<>74.67 or (ledger->>'count')::integer<>3 then raise exception 'FAIL fresh statement';end if;
+ insert into foundation_test_context(label,id,data) values('statement_scope',invoice.organization_id,jsonb_build_object('customer_id',invoice.customer_id));
+ begin
+  delete from public.report_exports where kind='customer_statement';
+  raise exception 'FAIL statement direct deletion';
+ exception when insufficient_privilege then null;end;
+end $$;
+select set_config('request.jwt.claim.sub',(select id::text from foundation_test_context where label='owner_b'),true);
+do $$ declare scope foundation_test_context%rowtype;begin
+ select * into scope from foundation_test_context where label='statement_scope';
+ if exists(select 1 from public.report_exports where kind='customer_statement') then raise exception 'FAIL cross tenant statement read';end if;
+ begin
+  perform public.create_customer_statement_export(gen_random_uuid(),scope.id,(scope.data->>'customer_id')::uuid,current_date,current_date);
+  raise exception 'FAIL cross tenant statement command';
+ exception when insufficient_privilege then null;end;
 end $$;
 reset role;
 select 'Customer ledger and prior assertions passed; fixtures rolled back.' as result;

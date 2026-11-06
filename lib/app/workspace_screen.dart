@@ -22,6 +22,7 @@ import '../features/onboarding/presentation/onboarding_providers.dart';
 import 'theme/app_theme.dart';
 import '../features/support/presentation/support_screen.dart';
 import '../features/subscriptions/presentation/subscription_screen.dart';
+import '../features/search/presentation/business_search_screen.dart';
 
 class WorkspaceScreen extends StatefulWidget {
   const WorkspaceScreen({super.key, required this.membership});
@@ -119,6 +120,15 @@ class _WorkspaceHome extends ConsumerWidget {
     appBar: AppBar(
       title: Text(menuOnly ? 'More' : 'Smart Billing'),
       actions: [
+        IconButton(
+          tooltip: 'Search business',
+          icon: const Icon(Icons.search),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => BusinessSearchScreen(membership: membership),
+            ),
+          ),
+        ),
         IconButton(
           tooltip: 'Notifications',
           icon: const Icon(Icons.notifications_outlined),

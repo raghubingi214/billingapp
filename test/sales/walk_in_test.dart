@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_billing/features/sales/domain/draft_repository.dart';
 import 'package:smart_billing/features/sales/presentation/drafts_screen.dart';
 
@@ -14,12 +15,14 @@ class WalkInRepository implements DraftRepository {
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   testWidgets('walk-in selection removes mandatory customer picker', (
     tester,
   ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          saleActorIdProvider.overrideWithValue('actor'),
           draftRepositoryProvider.overrideWithValue(WalkInRepository()),
         ],
         child: const MaterialApp(home: SaleEditor(organizationId: 'org')),

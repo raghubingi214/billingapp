@@ -1,9 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_billing/features/platform/domain/platform_plan_repository.dart';
 import 'package:smart_billing/features/platform/presentation/platform_plans_screen.dart';
 import 'package:smart_billing/features/platform/data/suggested_plan_templates.dart';
+import 'package:smart_billing/features/platform/domain/pending_plan_draft.dart';
+
+class _PendingStore implements PendingPlanDraftStore {
+  bool failLoad = true, failSave = true;
+  int clears = 0;
+  PendingPlanDraft? pending = const PendingPlanDraft('original-command', {
+    'code': 'starter_month',
+    'name': 'Starter',
+    'price_inr': '199',
+    'monthly_invoice_limit': '1000',
+    'staff_limit': '2',
+    'location_limit': '1',
+    'monthly_reminder_limit': '0',
+    'trial_invoice_limit': null,
+    'billing_interval': 'month',
+    'report_types': ['sales', 'purchases', 'payments'],
+  });
+  @override
+  Future<PendingPlanDraft?> load(String actorId) async {
+    if (failLoad) throw StateError('Storage unavailable');
+    return pending;
+  }
+
+  @override
+  Future<void> save(String actorId, PendingPlanDraft draft) async {
+    if (failSave) throw StateError('Storage unavailable');
+    pending = draft;
+  }
+
+  @override
+  Future<void> clear(String actorId) async {
+    clears++;
+    pending = null;
+  }
+}
 
 class _Plans implements PlatformPlanRepository {
   int drafts = 0;
@@ -33,6 +69,43 @@ class _Plans implements PlatformPlanRepository {
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets('recovery retries storage and saves locally before sending', (
+    tester,
+  ) async {
+    final store = _PendingStore();
+    final plans = _Plans();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          pendingPlanDraftStoreProvider.overrideWithValue(store),
+          platformPlanRepositoryProvider.overrideWithValue(plans),
+          suggestedPlanTemplatesProvider.overrideWith((ref) async => []),
+        ],
+        child: const MaterialApp(
+          home: PlatformPlanDraftScreen(userId: 'admin'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(TextFormField), findsNothing);
+    expect(plans.drafts, 0);
+    store.failLoad = false;
+    await tester.tap(find.text('Retry draft recovery'));
+    await tester.pumpAndSettle();
+    expect(find.text('starter_month'), findsOneWidget);
+    await tester.ensureVisible(find.text('Save inactive draft'));
+    await tester.tap(find.text('Save inactive draft'));
+    await tester.pumpAndSettle();
+    expect(plans.drafts, 0);
+    expect(store.clears, 0);
+    store.failSave = false;
+    await tester.tap(find.text('Save inactive draft'));
+    await tester.pumpAndSettle();
+    expect(plans.keys, ['original-command']);
+    expect(store.clears, 1);
+    expect(store.pending, isNull);
+  });
   testWidgets('valid draft retry preserves command and explicit limits', (
     tester,
   ) async {
@@ -48,7 +121,9 @@ void main() {
             (ref) async => templates!,
           ),
         ],
-        child: const MaterialApp(home: PlatformPlanDraftScreen()),
+        child: const MaterialApp(
+          home: PlatformPlanDraftScreen(userId: 'admin'),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -63,6 +138,24 @@ void main() {
       await tester.ensureVisible(find.text('Save inactive draft'));
       await tester.tap(find.text('Save inactive draft'));
       await tester.pumpAndSettle();
+      if (attempt == 0) {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              platformPlanRepositoryProvider.overrideWithValue(plans),
+              suggestedPlanTemplatesProvider.overrideWith(
+                (ref) async => templates!,
+              ),
+            ],
+            child: const MaterialApp(
+              home: PlatformPlanDraftScreen(userId: 'admin'),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('business_year'), findsOneWidget);
+      }
     }
     expect(plans.keys.length, 2);
     expect(plans.keys.first, plans.keys.last);
@@ -89,7 +182,9 @@ void main() {
             (ref) async => templates!,
           ),
         ],
-        child: const MaterialApp(home: PlatformPlanDraftScreen()),
+        child: const MaterialApp(
+          home: PlatformPlanDraftScreen(userId: 'admin'),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -117,7 +212,9 @@ void main() {
           platformPlanRepositoryProvider.overrideWithValue(plans),
           suggestedPlanTemplatesProvider.overrideWith((ref) async => []),
         ],
-        child: const MaterialApp(home: PlatformPlanDraftScreen()),
+        child: const MaterialApp(
+          home: PlatformPlanDraftScreen(userId: 'admin'),
+        ),
       ),
     );
     await tester.pumpAndSettle();
