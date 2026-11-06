@@ -65,7 +65,13 @@ try {
     $databaseAttempted = $true
     Invoke-ValidationCli -CliArguments @('db', 'start', '--workdir', $runDirectory)
     Invoke-ValidationCli -CliArguments @('db', 'reset', '--workdir', $runDirectory, '--no-seed', '--yes')
-    Invoke-ValidationCli -CliArguments @('db', 'query', '--workdir', $runDirectory, '--file', $fixturePath)
+    # The CLI query command prepares one statement. Fixtures contain transactions
+    # and DO blocks, so execute the script with psql in this exact local container.
+    $databaseContainer = "supabase_db_$projectId"
+    & docker cp $fixturePath "${databaseContainer}:/tmp/billingapp-fixture.sql"
+    if ($LASTEXITCODE -ne 0) { throw 'Unable to copy fixture into the isolated database container.' }
+    & docker exec --user postgres $databaseContainer psql --username postgres --dbname postgres --set ON_ERROR_STOP=1 --file /tmp/billingapp-fixture.sql
+    if ($LASTEXITCODE -ne 0) { throw "SQL fixture failed: $Fixture" }
     Write-Host "SQL fixture passed: $Fixture"
 }
 finally {

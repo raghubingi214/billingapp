@@ -13,7 +13,8 @@ Windows Docker engine; its result must be checked before claiming a SQL pass.
 The script pins Supabase CLI 3.0.0 and generates a unique project under the ignored
 `.local-db-validation` directory. It starts local Postgres, resets that isolated
 database to the copied migrations without seed scripts, runs the selected SQL
-fixture, then stops and removes only that invocation's local database volumes.
+fixture through `psql` with `ON_ERROR_STOP=1` inside that container, then stops and
+removes only that invocation's local database volumes.
 It never links a project, loads the app `.env`, or passes `--remote`/`--all`.
 The CLI can download its local container images on the first database start.
 
@@ -33,7 +34,8 @@ To retain the disposable database for investigation, add `-KeepDatabase`. The
 script prints its unique project ID and the scoped cleanup command. The generated
 configuration files remain under the ignored directory for inspection.
 
-Current evidence: preparation ran successfully and copied 61 migrations with 042
-absent. Full database start, migration application, fixture execution and cleanup
-are unverified: Docker Desktop launched, but engine/status probes failed: the Linux engine pipe was unavailable and Desktop status could not be retrieved.
-No hosted migration was applied.
+Current evidence: CI started and reset an isolated database, applied all 61
+selected migrations (including 062, excluding 042), and cleaned it up. Initial
+fixture execution failed because the CLI query command cannot prepare multiple
+statements; the runner now uses `psql`, with that fixture result still pending.
+Windows Docker remains unavailable. No hosted migration was applied.
