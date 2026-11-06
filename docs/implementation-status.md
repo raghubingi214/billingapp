@@ -352,3 +352,9 @@ The matrix above is the current scope status. Milestone notes below preserve par
 - Platform plan draft/catalog migration 061 deployed. Plans created through the admin command are inactive, audited and retry-safe; no business assignment or billing activation occurs. Rollback SQL passed merchant denial, admin draft creation/retry, inactive flag, catalog visibility and direct-write denial. Mobile platform plan UI and live PostgREST RPC shape verification pending; no real plans drafted.
 
 - Mobile platform Plan catalog connected via dedicated domain/data repository to protected catalog RPC. Includes paged inactive/active price/quota display, empty/error/retry and resume refresh. Widget test passed draft labeling/no activation action and quota expansion; analyzer clean. Draft editing/creation UI, activation/assignment workflow, HTTP shape/native/operator tests and enforcement remain pending.
+
+- Mobile inactive-plan form now loads editable suggested Starter/Business monthly/annual templates from the proposed configuration asset. Template selection never calls save/activation; messaging quota stays explicit. Billing interval field keyed to selected interval to avoid stale monthly display. Added template-fill/no-write widget test; corrected test syntax before rerun. Verification running; no live plans created.
+
+- Plan template verification corrected for Flutter test asset I/O: loads actual config through runAsync and injects resolved templates into form tests; validation test isolates optional template loading. Three plan tests passed after correction. Added explicit annual-interval assertion; latest rerun/analyzer pending. No billing activation or live plan write occurred.
+
+- Latest plan template verification: all four focused plan widget tests passed, including valid-input lost-response retry retaining the command and payload. No live plan creation or activation performed.

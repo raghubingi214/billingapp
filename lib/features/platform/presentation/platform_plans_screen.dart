@@ -4,6 +4,12 @@ import 'package:uuid/uuid.dart';
 import '../../../integrations/supabase/supabase_provider.dart';
 import '../data/supabase_platform_plan_repository.dart';
 import '../domain/platform_plan_repository.dart';
+import '../data/suggested_plan_templates.dart';
+
+final suggestedPlanTemplatesProvider =
+    FutureProvider.autoDispose<List<Map<String, String>>>(
+      (ref) => SuggestedPlanTemplates().load(),
+    );
 
 final platformPlanRepositoryProvider = Provider<PlatformPlanRepository>(
   (ref) => SupabasePlatformPlanRepository(ref.watch(supabaseClientProvider)),
@@ -158,6 +164,18 @@ class PlatformPlanDraftScreen extends ConsumerStatefulWidget {
 }
 
 class _DraftState extends ConsumerState<PlatformPlanDraftScreen> {
+  void fillTemplate(Map<String, String> template) {
+    setState(() {
+      for (final entry in fields.entries) {
+        entry.value.text = template[entry.key] ?? '';
+      }
+      interval = template['billing_interval']!;
+      command = null;
+      fingerprint = null;
+      error = null;
+    });
+  }
+
   final form = GlobalKey<FormState>();
   final fields = {
     for (final key in [
@@ -234,6 +252,31 @@ class _DraftState extends ConsumerState<PlatformPlanDraftScreen> {
                 'Saving creates an inactive draft. It does not change merchant subscriptions or collect payment.',
               ),
               const SizedBox(height: 16),
+              ref
+                  .watch(suggestedPlanTemplatesProvider)
+                  .when(
+                    loading: () => const LinearProgressIndicator(),
+                    error: (_, _) => TextButton(
+                      onPressed: () =>
+                          ref.invalidate(suggestedPlanTemplatesProvider),
+                      child: const Text('Retry suggested templates'),
+                    ),
+                    data: (templates) => DropdownButtonFormField<int>(
+                      decoration: const InputDecoration(
+                        labelText: 'Suggested plan template (optional)',
+                      ),
+                      items: [
+                        for (var i = 0; i < templates.length; i++)
+                          DropdownMenuItem(
+                            value: i,
+                            child: Text(templates[i]['name']!),
+                          ),
+                      ],
+                      onChanged: busy
+                          ? null
+                          : (index) => fillTemplate(templates[index!]),
+                    ),
+                  ),
               for (final entry in const {
                 'code': 'Unique plan code',
                 'name': 'Plan name',
@@ -289,6 +332,7 @@ class _DraftState extends ConsumerState<PlatformPlanDraftScreen> {
                   ),
                 ),
               DropdownButtonFormField<String>(
+                key: ValueKey(interval),
                 initialValue: interval,
                 decoration: const InputDecoration(
                   labelText: 'Billing interval',
