@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/domain/calendar_date.dart';
 import '../../../integrations/supabase/supabase_provider.dart';
 import '../domain/report_repository.dart';
 import '../data/supabase_report_repository.dart';
@@ -19,9 +20,22 @@ class ReportsScreen extends ConsumerStatefulWidget {
 }
 
 class _ReportsScreenState extends ConsumerState<ReportsScreen> {
+  bool validateDates() {
+    final dateError =
+        CalendarDate.error(from.text) ??
+        CalendarDate.error(to.text) ??
+        CalendarDate.rangeError(from.text, to.text, maximumDays: 3660);
+    form.currentState?.validate();
+    if (dateError != null) {
+      setState(() => error = dateError);
+      return false;
+    }
+    return true;
+  }
+
   String exportKey = const Uuid().v4(), exportFilters = '';
   Future<void> export(BuildContext anchor) async {
-    if (busy || !form.currentState!.validate()) return;
+    if (busy || !validateDates()) return;
     final filters = '$kind|${from.text}|${to.text}';
     if (exportFilters != filters) {
       exportKey = const Uuid().v4();
@@ -89,7 +103,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
 
   Future<void> load({bool reset = false}) async {
     if (busy) return;
-    if (form.currentState != null && !form.currentState!.validate()) return;
+    if (!validateDates()) return;
     setState(() => busy = true);
     try {
       if (reset) {
@@ -167,12 +181,15 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                     rows = [];
                     summary = null;
                     more = false;
+                    error = null;
                   }),
                   validator: (value) =>
-                      DateTime.tryParse(value ?? '') != null &&
-                          RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value!)
-                      ? null
-                      : 'Enter a valid date',
+                      CalendarDate.error(value) ??
+                      CalendarDate.rangeError(
+                        from.text,
+                        to.text,
+                        maximumDays: 3660,
+                      ),
                 ),
               ),
             FilledButton(

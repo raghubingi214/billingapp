@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/domain/calendar_date.dart';
 import '../../../integrations/supabase/supabase_provider.dart';
 import '../domain/ledger_repository.dart';
 import '../data/supabase_ledger_repository.dart';
@@ -42,7 +43,7 @@ class _CustomerLedgerScreenState extends ConsumerState<CustomerLedgerScreen> {
   CustomerStatement? snapshot;
 
   Future<void> export(BuildContext anchor) async {
-    if (busy || !form.currentState!.validate()) return;
+    if (busy || !validateDates()) return;
     final filters = '${from.text}|${to.text}';
     if (filters != exportFilters) {
       exportFilters = filters;
@@ -86,16 +87,21 @@ class _CustomerLedgerScreenState extends ConsumerState<CustomerLedgerScreen> {
   }
 
   String? validateDate(String? value) {
-    final parsed = DateTime.tryParse(value ?? '');
-    if (parsed == null || parsed.toIso8601String().substring(0, 10) != value) {
-      return 'Enter a valid date (YYYY-MM-DD)';
+    return CalendarDate.error(value) ??
+        CalendarDate.rangeError(from.text, to.text);
+  }
+
+  bool validateDates() {
+    final dateError =
+        CalendarDate.error(from.text) ??
+        CalendarDate.error(to.text) ??
+        CalendarDate.rangeError(from.text, to.text);
+    form.currentState?.validate();
+    if (dateError != null) {
+      setState(() => error = dateError);
+      return false;
     }
-    final start = DateTime.tryParse(from.text),
-        end = DateTime.tryParse(to.text);
-    if (start != null && end != null && start.isAfter(end)) {
-      return 'From date must be on or before To date';
-    }
-    return null;
+    return true;
   }
 
   void filtersChanged(String _) => setState(() {
@@ -128,7 +134,7 @@ class _CustomerLedgerScreenState extends ConsumerState<CustomerLedgerScreen> {
 
   Future<void> load({bool reset = false}) async {
     if (busy) return;
-    if (form.currentState != null && !form.currentState!.validate()) return;
+    if (!validateDates()) return;
     setState(() {
       busy = true;
       error = null;

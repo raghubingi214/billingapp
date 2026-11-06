@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/domain/calendar_date.dart';
 import '../../../integrations/supabase/supabase_provider.dart';
 import '../domain/draft_repository.dart';
 import '../domain/pending_invoice_issue.dart';
@@ -451,7 +452,16 @@ class _SaleEditorState extends ConsumerState<SaleEditor> {
       }
       return;
     }
-    if (!form.currentState!.validate() || busy) return;
+    if (busy) return;
+    final dueError = CalendarDate.error(due.text);
+    if (dueError != null) {
+      form.currentState!.validate();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(dueError)));
+      return;
+    }
+    if (!form.currentState!.validate()) return;
     if (issue && walkIn && tenders.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -695,11 +705,7 @@ class _SaleEditorState extends ConsumerState<SaleEditor> {
                       decoration: const InputDecoration(
                         labelText: 'Due date (YYYY-MM-DD)',
                       ),
-                      validator: (v) =>
-                          DateTime.tryParse(v ?? '') != null &&
-                              RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(v!)
-                          ? null
-                          : 'Enter a valid date',
+                      validator: CalendarDate.error,
                     ),
                     for (final line in lines)
                       Card(

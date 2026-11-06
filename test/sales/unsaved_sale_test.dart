@@ -169,6 +169,22 @@ Future<void> _tap(WidgetTester tester, String text) async {
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets('impossible due date cannot save a draft or issue a sale', (
+    tester,
+  ) async {
+    final repository = _Drafts();
+    await _open(tester, repository);
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Due date (YYYY-MM-DD)'),
+      '2026-02-30',
+    );
+    await _tap(tester, 'Save draft');
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    await _tap(tester, 'Review and issue');
+    expect(repository.saves, 0);
+    expect(repository.issues, 0);
+  });
   testWidgets(
     'definite stock rejection clears pending command and permits corrections',
     (tester) async {
