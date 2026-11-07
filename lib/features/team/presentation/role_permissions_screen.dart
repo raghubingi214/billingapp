@@ -203,24 +203,22 @@ class RolePermissionsScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (isPlatformAdmin)
+              const _CurrentRoleChip(label: 'Your platform role: Superadmin'),
+            if (current != null)
+              Padding(
+                padding: EdgeInsets.only(top: isPlatformAdmin ? 8 : 0),
+                child: _CurrentRoleChip(
+                  label:
+                      'Your role in ${current.organizationName}: ${current.role.label}',
+                ),
+              ),
+            if (isPlatformAdmin || current != null) const SizedBox(height: 16),
             Text('Who manages what?', style: theme.textTheme.titleLarge),
             const SizedBox(height: 8),
             const Text(
               'A business owner creates and manages their shop. Superadmin manages the platform, business plan assignments, and support. A Superadmin only sees a shop’s private business data if separately added to that shop.',
             ),
-            if (isPlatformAdmin || current != null) ...[
-              const SizedBox(height: 16),
-              if (isPlatformAdmin)
-                const _CurrentRoleChip(label: 'Your platform role: Superadmin'),
-              if (current != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: _CurrentRoleChip(
-                    label:
-                        'Your role in ${current.organizationName}: ${current.role.label}',
-                  ),
-                ),
-            ],
             const SizedBox(height: 20),
             Text('Role details', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
