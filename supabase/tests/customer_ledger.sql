@@ -575,4 +575,74 @@ select 'Statement role access, revoked replay and direct-write assertions passed
 
 
 
+do $$
+declare
+  org uuid := (select id from foundation_test_context where label='org_a');
+  owner_user uuid := (select id from foundation_test_context where label='owner_a');
+  staff_user uuid := (select id from foundation_test_context where label='staff');
+  admin_user uuid := (select id from foundation_test_context where label='outsider');
+  plan uuid := gen_random_uuid();
+  assignment_key uuid := gen_random_uuid();
+  aging_key uuid := gen_random_uuid();
+  stock_key uuid := gen_random_uuid();
+  report jsonb;
+begin
+  insert into private.platform_admins(user_id) values(admin_user);
+  insert into private.plans(id,code,name,price_inr,billing_interval,active)
+  values(plan,'fixture_free','Fixture Free',0,'month',true);
+  update public.organization_members set role='manager',status='active'
+  where organization_id=org and user_id=staff_user;
+
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub',owner_user::text,true);
+  begin
+    perform public.assign_platform_subscription(assignment_key,org,plan,null);
+    raise exception 'FAIL owner assigned a platform subscription';
+  exception when insufficient_privilege then null; end;
+  perform set_config('request.jwt.claim.sub',admin_user::text,true);
+  report := public.assign_platform_subscription(assignment_key,org,plan,null);
+  if report is distinct from public.assign_platform_subscription(assignment_key,org,plan,null)
+    or report->>'period_end' is distinct from 'infinity' then
+    raise exception 'FAIL Free assignment or replay';
+  end if;
+  begin
+    perform public.assign_platform_subscription(gen_random_uuid(),org,plan,null);
+    raise exception 'FAIL stale subscription change accepted';
+  exception when raise_exception then
+    if sqlerrm<>'SUBSCRIPTION_CHANGED' then raise; end if;
+  end;
+  perform set_config('request.jwt.claim.sub',owner_user::text,true);
+  if public.subscription_summary(org)->>'plan_name' is distinct from 'Fixture Free' then
+    raise exception 'FAIL assigned plan is absent from owner summary';
+  end if;
+
+  perform set_config('request.jwt.claim.sub',staff_user::text,true);
+  report := public.create_customer_aging_export(aging_key,org);
+  if (report->>'total')::numeric is distinct from 85.67::numeric
+    or report->>'current_due' is distinct from report->>'total'
+    or report is distinct from public.create_customer_aging_export(aging_key,org) then
+    raise exception 'FAIL manager aging export and allocation reconciliation';
+  end if;
+  report := public.create_stock_valuation_export(stock_key,org);
+  if (report->>'total')::numeric is distinct from 331.47::numeric
+    or (report->'rows'->0->>'quantity')::numeric is distinct from 14::numeric
+    or report is distinct from public.create_stock_valuation_export(stock_key,org) then
+    raise exception 'FAIL manager valuation export and cost reconciliation';
+  end if;
+  reset role;
+  update public.organization_members set status='revoked'
+  where organization_id=org and user_id=staff_user;
+  set local role authenticated;
+  begin
+    perform public.create_customer_aging_export(aging_key,org);
+    raise exception 'FAIL revoked aging replay accepted';
+  exception when insufficient_privilege then null; end;
+  reset role;
+  if (select count(*) from public.audit_events a
+    where a.request_id in (aging_key,stock_key) and a.action='report.exported')<>2 then
+    raise exception 'FAIL report exports must be audited once each';
+  end if;
+end $$;
+select 'Platform assignment and mobile report export assertions passed.' as result;
+
 rollback;
