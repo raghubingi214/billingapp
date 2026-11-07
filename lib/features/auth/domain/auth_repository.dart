@@ -19,8 +19,10 @@ class AuthFailure implements Exception {
 
 abstract interface class AuthRepository {
   Stream<AppSession?> watchSession();
+  Stream<String> watchLinkFailures();
   Future<void> signIn(String email, String password);
   Future<bool> register(String email, String password);
+  Future<void> resendConfirmation(String email);
   Future<void> sendRecovery(String email);
   Future<void> verifyRecovery(String email, String code);
   Future<void> updatePassword(String password);

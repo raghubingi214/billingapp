@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/auth_use_cases.dart';
 import 'auth_providers.dart';
 
-enum _AuthMode { signIn, register, recover }
+enum _AuthMode { signIn, register, confirmEmail, recover }
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
@@ -20,6 +20,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   _AuthMode _mode = _AuthMode.signIn;
   bool _showPassword = false;
   bool _emailRequested = false;
+  bool get _needsPassword =>
+      _mode == _AuthMode.signIn || _mode == _AuthMode.register;
 
   @override
   void dispose() {
@@ -51,6 +53,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         await controller.signIn(_email.text, _password.text);
       case _AuthMode.register:
         await controller.register(_email.text, _password.text);
+      case _AuthMode.confirmEmail:
+        await controller.resendConfirmation(_email.text);
       case _AuthMode.recover:
         if (_emailRequested) {
           await controller.verifyRecovery(_email.text, _code.text);
@@ -63,16 +67,26 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(authLinkFailureProvider, (_, next) {
+      final message = next.asData?.value;
+      if (message == null) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    });
     final action = ref.watch(authControllerProvider);
     final theme = Theme.of(context);
     final title = switch (_mode) {
       _AuthMode.signIn => 'Welcome back',
       _AuthMode.register => 'Start your business journey',
+      _AuthMode.confirmEmail => 'Confirm your email',
       _AuthMode.recover => 'Recover your account',
     };
     final subtitle = switch (_mode) {
       _AuthMode.signIn => 'Sign in to manage your shop.',
       _AuthMode.register => 'Create an account, then set up your business.',
+      _AuthMode.confirmEmail =>
+        'Enter the email address you used to create your account.',
       _AuthMode.recover =>
         'We’ll email you a secure way to reset your password.',
     };
@@ -128,9 +142,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         controller: _email,
                         enabled: !action.busy,
                         keyboardType: TextInputType.emailAddress,
-                        textInputAction: _mode == _AuthMode.recover
-                            ? TextInputAction.done
-                            : TextInputAction.next,
+                        textInputAction: _needsPassword
+                            ? TextInputAction.next
+                            : TextInputAction.done,
                         autofillHints: const [AutofillHints.email],
                         autocorrect: false,
                         decoration: const InputDecoration(
@@ -139,7 +153,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         ),
                         validator: AuthValidation.email,
                       ),
-                      if (_mode != _AuthMode.recover) ...[
+                      if (_needsPassword) ...[
                         const SizedBox(height: 16),
                         TextFormField(
                           key: const Key('auth-password'),
@@ -192,7 +206,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               : 'Passwords do not match',
                         ),
                       ],
-                      if (_mode == _AuthMode.signIn)
+                      if (_mode == _AuthMode.signIn) ...[
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
@@ -202,6 +216,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             child: const Text('Forgot password?'),
                           ),
                         ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: action.busy
+                                ? null
+                                : () => _changeMode(_AuthMode.confirmEmail),
+                            child: const Text('Resend confirmation email'),
+                          ),
+                        ),
+                      ],
                       if (_mode == _AuthMode.recover && _emailRequested) ...[
                         const SizedBox(height: 16),
                         TextFormField(
@@ -244,6 +268,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             : Text(switch (_mode) {
                                 _AuthMode.signIn => 'Sign in',
                                 _AuthMode.register => 'Create account',
+                                _AuthMode.confirmEmail =>
+                                  'Send confirmation email',
                                 _AuthMode.recover =>
                                   _emailRequested
                                       ? 'Verify code'

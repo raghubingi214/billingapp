@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:smart_billing/features/catalog/data/pending_product_image_store.dart';
 import 'package:smart_billing/features/catalog/domain/catalog_image_repository.dart';
 import 'package:smart_billing/features/catalog/domain/catalog_repository.dart';
 import 'package:smart_billing/features/catalog/presentation/product_image_screen.dart';
@@ -18,6 +21,7 @@ class _Repository implements CatalogImageRepository {
   int signedCalls = 0;
   bool failSigning = false;
   int uploads = 0;
+  Completer<void>? attachmentResponse;
   final commands = <String>[];
   @override
   Future<void> upload(String path, Uint8List jpeg) async {
@@ -33,6 +37,7 @@ class _Repository implements CatalogImageRepository {
     String? path,
   ) async {
     commands.add('$requestId:$organizationId:$productId:$version:$path');
+    await attachmentResponse?.future;
     throw StateError('Response lost');
   }
 
@@ -45,6 +50,31 @@ class _Repository implements CatalogImageRepository {
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+  test('pending image commands stay scoped and cannot be replaced', () async {
+    final store = PendingProductImageStore('actor-a', 'org-a', 'product-a');
+    const change = (requestId: 'request-a', version: 3, path: null);
+    const other = (requestId: 'request-b', version: 4, path: 'photo.jpg');
+    await store.save(change);
+    expect(await store.read(), change);
+    expect(
+      await PendingProductImageStore('actor-b', 'org-a', 'product-a').read(),
+      isNull,
+    );
+    expect(
+      await PendingProductImageStore('actor-a', 'org-b', 'product-a').read(),
+      isNull,
+    );
+    expect(
+      await PendingProductImageStore('actor-a', 'org-a', 'product-b').read(),
+      isNull,
+    );
+    await expectLater(store.save(other), throwsStateError);
+    await expectLater(store.clear(other), throwsStateError);
+    expect(await store.read(), change);
+    await store.clear(change);
+    expect(await store.read(), isNull);
+  });
   testWidgets('signed image renews before expiry and stops after disposal', (
     tester,
   ) async {
@@ -126,6 +156,7 @@ void main() {
         ProviderScope(
           overrides: [
             catalogImageRepositoryProvider.overrideWithValue(repository),
+            catalogImageActorProvider.overrideWithValue('actor-a'),
           ],
           child: const MaterialApp(
             home: ProductImageScreen(
@@ -145,6 +176,19 @@ void main() {
       await tester.pumpAndSettle();
       expect(repository.commands.single, endsWith(':org-a:product-a:3:null'));
       expect(repository.uploads, 0);
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.widgetWithText(OutlinedButton, 'Choose photo'),
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.ensureVisible(find.text('Retry removal'));
+      await tester.tap(find.text('Retry removal'));
+      await tester.pumpAndSettle();
+      expect(repository.commands.length, 2);
+      expect(repository.commands.first, repository.commands.last);
     },
   );
   const product = CatalogProduct(
@@ -157,17 +201,25 @@ void main() {
   testWidgets('attachment retry retains command and skips completed upload', (
     tester,
   ) async {
-    final repository = _Repository();
+    final response = Completer<void>();
+    final repository = _Repository()..attachmentResponse = response;
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           catalogImageRepositoryProvider.overrideWithValue(repository),
           catalogImagePickerProvider.overrideWithValue(_Picker()),
+          catalogImageActorProvider.overrideWithValue('actor-a'),
         ],
         child: const MaterialApp(
           home: ProductImageScreen(
             organizationId: 'org-a',
-            product: product,
+            product: CatalogProduct(
+              id: 'product-a',
+              version: 3,
+              name: 'Rice',
+              type: 'product',
+              values: {'image_path': 'org/product/asset.jpg'},
+            ),
             canManage: true,
           ),
         ),
@@ -176,9 +228,39 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Choose photo'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Save image'));
+    await tester.ensureVisible(find.text('Save image'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Save image'));
+    await tester.pumpAndSettle();
+    final route = ModalRoute.of(
+      tester.element(find.byType(ProductImageScreen)),
+    )!;
+    expect(route.popDisposition, RoutePopDisposition.doNotPop);
+    response.complete();
+    await tester.pumpAndSettle();
+    expect(route.popDisposition, isNot(RoutePopDisposition.doNotPop));
+    expect(
+      tester
+          .widget<TextButton>(find.widgetWithText(TextButton, 'Remove image'))
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<OutlinedButton>(
+            find.widgetWithText(OutlinedButton, 'Choose photo'),
+          )
+          .onPressed,
+      isNull,
+    );
+    final screen = tester.widget<ProviderScope>(
+      find.byType(ProviderScope).first,
+    );
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(screen);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Retry save'));
+    await tester.tap(find.text('Retry save'));
     await tester.pumpAndSettle();
     expect(repository.uploads, 1);
     expect(repository.commands.length, 2);

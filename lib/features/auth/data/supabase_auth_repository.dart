@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import '../../../core/env/auth_redirect.dart';
@@ -20,6 +22,23 @@ class SupabaseAuthRepository implements AuthRepository {
           email: session.user.email ?? '',
           isPasswordRecovery: _recovering,
         );
+
+  static bool _isExpiredLink(Object? error) =>
+      error is AuthException && error.statusCode == 'otp_expired';
+
+  @override
+  Stream<String> watchLinkFailures() => client.auth.onAuthStateChange.transform(
+    StreamTransformer<AuthState, String>.fromHandlers(
+      handleData: (_, _) {},
+      handleError: (error, _, sink) {
+        if (_isExpiredLink(error)) {
+          sink.add(
+            'This email link has expired or was already used. Request a new email and try again.',
+          );
+        }
+      },
+    ),
+  );
 
   @override
   Stream<AppSession?> watchSession() async* {
@@ -46,7 +65,11 @@ class SupabaseAuthRepository implements AuthRepository {
       }
     }
     yield _map(client.auth.currentSession);
-    await for (final event in client.auth.onAuthStateChange) {
+    final events = client.auth.onAuthStateChange.handleError(
+      (Object _) {},
+      test: _isExpiredLink,
+    );
+    await for (final event in events) {
       if (event.event == AuthChangeEvent.passwordRecovery) _recovering = true;
       if (event.event == AuthChangeEvent.signedOut) _recovering = false;
       yield _map(event.session);
@@ -90,6 +113,15 @@ class SupabaseAuthRepository implements AuthRepository {
     );
     return response.session != null;
   }, 'Unable to create an account. Check your details or try signing in.');
+
+  @override
+  Future<void> resendConfirmation(String email) => _run(() async {
+    await client.auth.resend(
+      type: OtpType.signup,
+      email: email,
+      emailRedirectTo: redirectUrl,
+    );
+  }, 'Unable to request a confirmation email. Please try again later.');
 
   @override
   Future<void> sendRecovery(String email) => _run(() async {

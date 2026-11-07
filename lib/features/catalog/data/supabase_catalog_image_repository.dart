@@ -50,16 +50,29 @@ class SupabaseCatalogImageRepository implements CatalogImageRepository {
     int version,
     String? path,
   ) async {
-    await client.rpc(
-      'set_product_image',
-      params: {
-        'p_request_id': requestId,
-        'p_organization_id': organizationId,
-        'p_product_id': productId,
-        'p_version': version,
-        'p_path': path,
-      },
-    );
+    try {
+      await client.rpc(
+        'set_product_image',
+        params: {
+          'p_request_id': requestId,
+          'p_organization_id': organizationId,
+          'p_product_id': productId,
+          'p_version': version,
+          'p_path': path,
+        },
+      );
+    } on PostgrestException catch (error) {
+      if (const {
+        'PRODUCT_NOT_FOUND',
+        'PRODUCT_VERSION_CONFLICT',
+        'INVALID_IMAGE_PATH',
+        'IMAGE_UPLOAD_REQUIRED',
+        'IDEMPOTENCY_CONFLICT',
+      }.contains(error.message)) {
+        throw const ProductImageRejected();
+      }
+      rethrow;
+    }
   }
 
   @override

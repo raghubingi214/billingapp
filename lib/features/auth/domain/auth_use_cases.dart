@@ -40,6 +40,12 @@ class AuthUseCases {
     return repository.sendRecovery(email.trim());
   }
 
+  Future<void> resendConfirmation(String email) {
+    final error = AuthValidation.email(email);
+    if (error != null) throw AuthFailure(error);
+    return repository.resendConfirmation(email.trim());
+  }
+
   Future<void> verifyRecovery(String email, String code) {
     final error = AuthValidation.email(email);
     if (error != null) throw AuthFailure(error);

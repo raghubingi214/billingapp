@@ -12,6 +12,9 @@ final authRepositoryProvider = Provider<AuthRepository>(
 final authSessionProvider = StreamProvider<AppSession?>(
   (ref) => ref.watch(authRepositoryProvider).watchSession(),
 );
+final authLinkFailureProvider = StreamProvider<String>(
+  (ref) => ref.watch(authRepositoryProvider).watchLinkFailures(),
+);
 final authUseCasesProvider = Provider(
   (ref) => AuthUseCases(ref.watch(authRepositoryProvider)),
 );
@@ -73,6 +76,10 @@ class AuthController extends Notifier<AuthActionState> {
   Future<bool> sendRecovery(String email) => _perform(() async {
     await ref.read(authUseCasesProvider).sendRecovery(email);
     return 'If an account matches this email, you will receive recovery instructions. Open the link on this phone, or enter the code if your email includes one.';
+  });
+  Future<bool> resendConfirmation(String email) => _perform(() async {
+    await ref.read(authUseCasesProvider).resendConfirmation(email);
+    return 'If this email still needs confirmation, we’ll send a new link. Open the latest email on this phone.';
   });
   Future<bool> verifyRecovery(String email, String code) => _perform(() async {
     await ref.read(authUseCasesProvider).verifyRecovery(email, code);
