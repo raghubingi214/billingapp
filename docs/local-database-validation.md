@@ -37,5 +37,5 @@ configuration files remain under the ignored directory for inspection.
 Current evidence: CI started and reset an isolated database, applied all 61
 selected migrations (including 062, excluding 042), and cleaned it up. Initial
 fixture execution failed because the CLI query command cannot prepare multiple
-statements; the runner now uses `psql`, with that fixture result still pending.
+statements; the runner now uses `psql`, with the fixture now passing in CI run 42264835839.
 Windows Docker remains unavailable. No hosted migration was applied.

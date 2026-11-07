@@ -489,6 +489,84 @@ end $$;
 reset role;
 select 'Customer ledger and prior assertions passed; fixtures rolled back.' as result;
 
+-- S18 permits manager/accountant statement sharing; aggregate financial exports
+-- retain their separate owner/accountant policy. Fixture-only role changes below
+-- run through the privileged connection and are rolled back with all test data.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',(select id::text from foundation_test_context where label='owner_a'),true);
+do $$ declare scope foundation_test_context%rowtype;report jsonb;begin
+ select * into scope from foundation_test_context where label='statement_scope';
+ report:=public.create_report_export(gen_random_uuid(),scope.id,'sales',current_date,current_date);
+ insert into foundation_test_context(label,id) values('aggregate_export',(report->>'export_id')::uuid);
+end $$;
+reset role;
+insert into public.organization_members(organization_id,user_id,role,status)
+select scope.id,actor.id,'manager','active'
+from foundation_test_context scope cross join foundation_test_context actor
+where scope.label='statement_scope' and actor.label='staff'
+on conflict(organization_id,user_id) do update set role='manager',status='active';
+set local role authenticated;
+select set_config('request.jwt.claim.sub',(select id::text from foundation_test_context where label='staff'),true);
+do $$ declare scope foundation_test_context%rowtype;req uuid:=gen_random_uuid();reply jsonb;begin
+ select * into scope from foundation_test_context where label='statement_scope';
+ if not exists(select 1 from public.report_exports where organization_id=scope.id and kind='customer_statement') then raise exception 'FAIL manager statement read';end if;
+ if exists(select 1 from public.report_exports where id=(select id from foundation_test_context where label='aggregate_export')) then raise exception 'FAIL manager aggregate export leakage';end if;
+ reply:=public.create_customer_statement_export(req,scope.id,(scope.data->>'customer_id')::uuid,current_date,current_date);
+ if reply<>public.create_customer_statement_export(req,scope.id,(scope.data->>'customer_id')::uuid,current_date,current_date) then raise exception 'FAIL manager statement replay';end if;
+ insert into foundation_test_context(label,id) values('manager_statement_request',req);
+ begin
+  perform public.create_customer_statement_export(req,scope.id,(scope.data->>'customer_id')::uuid,current_date,current_date+1);
+  raise exception 'FAIL statement payload conflict';
+ exception when invalid_parameter_value then if sqlerrm<>'IDEMPOTENCY_CONFLICT' then raise;end if;end;
+ begin
+  insert into public.report_exports(organization_id,created_by,kind,from_date,to_date,payload)
+  values(scope.id,auth.uid(),'customer_statement',current_date,current_date,reply);
+  raise exception 'FAIL manager direct export write';
+ exception when insufficient_privilege then null;end;
+end $$;
+reset role;
+update public.organization_members set role='cashier'
+where organization_id=(select id from foundation_test_context where label='statement_scope')
+ and user_id=(select id from foundation_test_context where label='staff');
+set local role authenticated;
+do $$ declare scope foundation_test_context%rowtype;begin
+ select * into scope from foundation_test_context where label='statement_scope';
+ if exists(select 1 from public.report_exports where organization_id=scope.id) then raise exception 'FAIL cashier export read';end if;
+ begin
+  perform public.create_customer_statement_export(gen_random_uuid(),scope.id,(scope.data->>'customer_id')::uuid,current_date,current_date);
+  raise exception 'FAIL cashier statement command';
+ exception when insufficient_privilege then null;end;
+end $$;
+reset role;
+update public.organization_members set role='accountant'
+where organization_id=(select id from foundation_test_context where label='statement_scope')
+ and user_id=(select id from foundation_test_context where label='staff');
+set local role authenticated;
+do $$ declare scope foundation_test_context%rowtype;reply jsonb;begin
+ select * into scope from foundation_test_context where label='statement_scope';
+ if not exists(select 1 from public.report_exports where id=(select id from foundation_test_context where label='aggregate_export')) then raise exception 'FAIL accountant aggregate export read';end if;
+ reply:=public.create_customer_statement_export(gen_random_uuid(),scope.id,(scope.data->>'customer_id')::uuid,current_date,current_date);
+ if (reply->>'closing_balance')::numeric<>74.67 then raise exception 'FAIL accountant statement reconciliation';end if;
+end $$;
+reset role;
+update public.organization_members set status='revoked'
+where organization_id=(select id from foundation_test_context where label='statement_scope')
+ and user_id=(select id from foundation_test_context where label='staff');
+set local role authenticated;
+do $$ declare scope foundation_test_context%rowtype;begin
+ select * into scope from foundation_test_context where label='statement_scope';
+ if exists(select 1 from public.report_exports where organization_id=scope.id) then raise exception 'FAIL revoked statement read';end if;
+ begin
+  perform public.create_customer_statement_export((select id from foundation_test_context where label='manager_statement_request'),scope.id,(scope.data->>'customer_id')::uuid,current_date,current_date);
+  raise exception 'FAIL revoked statement replay';
+ exception when insufficient_privilege then null;end;
+end $$;
+reset role;
+do $$ begin
+ if has_function_privilege('anon','public.create_customer_statement_export(uuid,uuid,uuid,date,date)','EXECUTE') then raise exception 'FAIL anonymous statement execute grant';end if;
+end $$;
+select 'Statement role access, revoked replay and direct-write assertions passed.' as result;
+
 
 
 
