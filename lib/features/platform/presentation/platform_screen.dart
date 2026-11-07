@@ -206,7 +206,15 @@ class _PlatformBusinessesState extends ConsumerState<PlatformBusinessesScreen> {
                       subtitle: Text(
                         '${item['status']} · ${item['staff_count']} active staff',
                       ),
-                      isThreeLine: false,
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => PlatformSubscriptionScreen(
+                            organizationId: item['id'] as String,
+                            businessName: item['name'] as String,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 Wrap(

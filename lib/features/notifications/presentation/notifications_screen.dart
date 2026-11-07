@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../integrations/notifications/android_push_test_button.dart';
 import '../../../integrations/supabase/supabase_provider.dart';
 import '../domain/notification_repository.dart';
 import '../data/supabase_notification_repository.dart';
@@ -137,6 +138,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           children: [
+            const AndroidPushTestButton(),
             SwitchListTile(
               title: const Text('Unread only'),
               value: unreadOnly,

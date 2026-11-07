@@ -6,6 +6,10 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+if (file("google-services.json").isFile) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 val allowUnsignedRelease = providers.gradleProperty("smartBillingUnsignedRelease").orNull == "true"
 val uploadKeyProperties = Properties()
 val uploadKeyPropertiesFile = rootProject.file("key.properties")

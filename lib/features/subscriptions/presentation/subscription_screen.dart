@@ -109,7 +109,10 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen>
                   Text(
                     '₹${data['price_inr']} / ${data['billing_interval'] == 'year' ? 'year' : 'month'}',
                   ),
-                  Text('Period ends: ${_date(data['period_end'])}'),
+                  if (data['period_end'] == 'infinity')
+                    const Text('No expiration')
+                  else
+                    Text('Period ends: ${_date(data['period_end'])}'),
                   if (data['grace_until'] != null)
                     Text('Grace ends: ${_date(data['grace_until'])}'),
                   if (data['cancel_at_period_end'] == true)

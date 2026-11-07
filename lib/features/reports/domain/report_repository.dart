@@ -4,6 +4,16 @@ class FinancialReport {
 }
 
 abstract interface class ReportRepository {
+  Future<FinancialReport> stockValuation(String organizationId, int offset);
+  Future<FinancialReport> exportStockValuation(
+    String requestId,
+    String organizationId,
+  );
+  Future<FinancialReport> customerAging(String organizationId, int offset);
+  Future<FinancialReport> exportCustomerAging(
+    String requestId,
+    String organizationId,
+  );
   Future<FinancialReport> export(
     String requestId,
     String organizationId,

@@ -42,6 +42,33 @@ class _PendingStore implements PendingPlanDraftStore {
 }
 
 class _Plans implements PlatformPlanRepository {
+  String currentPlan = 'Free';
+  final assignments = <(String, String, int?)>[];
+  @override
+  Future<Map<String, dynamic>> subscriptionOptions(
+    String organizationId,
+  ) async => {
+    'current': {'name': currentPlan, 'version': 1},
+    'plans': [
+      {
+        'id': 'starter',
+        'name': 'Starter',
+        'price_inr': 99,
+        'interval': 'month',
+      },
+    ],
+  };
+  @override
+  Future<void> assignSubscription(
+    String requestId,
+    String organizationId,
+    String planId,
+    int? expectedVersion,
+  ) async {
+    assignments.add((organizationId, planId, expectedVersion));
+    currentPlan = 'Starter';
+  }
+
   int drafts = 0;
   bool failSave = false;
   final keys = <String>[];
@@ -70,6 +97,35 @@ class _Plans implements PlatformPlanRepository {
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets('superadmin confirms a plan for the selected business', (
+    tester,
+  ) async {
+    final plans = _Plans();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [platformPlanRepositoryProvider.overrideWithValue(plans)],
+        child: const MaterialApp(
+          home: PlatformSubscriptionScreen(
+            organizationId: 'demo',
+            businessName: 'Demo Shop',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Current plan: Free'), findsOneWidget);
+    await tester.tap(find.text('New plan'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Starter · ₹99 / month').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Assign plan'));
+    await tester.pumpAndSettle();
+    expect(plans.assignments, isEmpty);
+    await tester.tap(find.text('Confirm assignment'));
+    await tester.pumpAndSettle();
+    expect(plans.assignments, [('demo', 'starter', 1)]);
+    expect(find.text('Current plan: Starter'), findsOneWidget);
+  });
   testWidgets('recovery retries storage and saves locally before sending', (
     tester,
   ) async {
@@ -129,7 +185,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byType(DropdownButtonFormField<int>));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Business Annual').last);
+    await tester.tap(find.text('Starter').last);
     await tester.pumpAndSettle();
     final reminders = find.widgetWithText(TextFormField, 'Reminders per month');
     await tester.ensureVisible(reminders);
@@ -154,19 +210,20 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.text('business_year'), findsOneWidget);
+        expect(find.text('starter_99_draft'), findsOneWidget);
       }
     }
     expect(plans.keys.length, 2);
     expect(plans.keys.first, plans.keys.last);
     expect(plans.payloads.first, plans.payloads.last);
-    expect(plans.payloads.first['price_inr'], '3999');
-    expect(plans.payloads.first['billing_interval'], 'year');
+    expect(plans.payloads.first['price_inr'], '99');
+    expect(plans.payloads.first['billing_interval'], 'month');
+    expect(plans.payloads.first['report_types'], ['sales', 'purchases']);
     expect(plans.payloads.first['monthly_reminder_limit'], '0');
     expect(plans.payloads.first['trial_invoice_limit'], isNull);
     expect(plans.payloads.first.containsKey('active'), isFalse);
   });
-  testWidgets('suggested annual template fills draft without saving', (
+  testWidgets('suggested monthly template fills draft without saving', (
     tester,
   ) async {
     final plans = _Plans();
@@ -190,17 +247,17 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byType(DropdownButtonFormField<int>));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Business Annual').last);
+    await tester.tap(find.text('Business').last);
     await tester.pumpAndSettle();
-    expect(find.text('business_year'), findsOneWidget);
-    expect(find.text('3999'), findsOneWidget);
+    expect(find.text('business_199_draft'), findsOneWidget);
+    expect(find.text('199'), findsOneWidget);
     expect(
       tester
           .widget<DropdownButtonFormField<String>>(
             find.byType(DropdownButtonFormField<String>),
           )
           .initialValue,
-      'year',
+      'month',
     );
     expect(plans.drafts, 0);
   });

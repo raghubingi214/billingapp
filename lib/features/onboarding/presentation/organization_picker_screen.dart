@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/domain/membership.dart';
 import 'onboarding_providers.dart';
 import '../../team/presentation/invitations_screen.dart';
+import '../../team/presentation/role_permissions_screen.dart';
 import '../../platform/presentation/platform_screen.dart';
 
 class OrganizationPickerScreen extends ConsumerWidget {
@@ -21,11 +22,13 @@ class OrganizationPickerScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final businesses = ref.watch(membershipProvider(userId));
+    final isPlatformAdmin =
+        ref.watch(platformAccessProvider(userId)).asData?.value == true;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Your businesses'),
         actions: [
-          if (ref.watch(platformAccessProvider(userId)).asData?.value == true)
+          if (isPlatformAdmin)
             IconButton(
               tooltip: 'Platform administration',
               icon: const Icon(Icons.admin_panel_settings_outlined),
@@ -124,6 +127,17 @@ class OrganizationPickerScreen extends ConsumerWidget {
                   onPressed: onCreate,
                   icon: const Icon(Icons.add),
                   label: const Text('Set up a business'),
+                ),
+                TextButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => RolePermissionsScreen(
+                        isPlatformAdmin: isPlatformAdmin,
+                      ),
+                    ),
+                  ),
+                  icon: const Icon(Icons.info_outline),
+                  label: const Text('Roles and permissions'),
                 ),
               ],
             ),

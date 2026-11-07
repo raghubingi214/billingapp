@@ -1,5 +1,5 @@
 {
-  "status": "proposed_not_activated",
+  "status": "matches_current_catalog",
   "currency": "INR",
   "users_include_owner": true,
   "trial": {
@@ -8,22 +8,33 @@
     "user_limit": 3,
     "location_limit": 1
   },
-  "paid_plans": [
+  "plans": [
     {
-      "code": "starter",
-      "monthly_price": 199,
-      "annual_price": 1999,
-      "monthly_invoice_limit": 1000,
-      "user_limit": 2,
-      "location_limit": 1
+      "code": "free_draft",
+      "name": "Free",
+      "monthly_price": 0,
+      "monthly_invoice_limit": 50,
+      "user_limit": 1,
+      "location_limit": 1,
+      "report_types": ["sales"]
     },
     {
-      "code": "business",
-      "monthly_price": 399,
-      "annual_price": 3999,
-      "monthly_invoice_limit": 5000,
+      "code": "starter_99_draft",
+      "name": "Starter",
+      "monthly_price": 99,
+      "monthly_invoice_limit": 300,
+      "user_limit": 2,
+      "location_limit": 1,
+      "report_types": ["sales", "purchases"]
+    },
+    {
+      "code": "business_199_draft",
+      "name": "Business",
+      "monthly_price": 199,
+      "monthly_invoice_limit": 1000,
       "user_limit": 5,
-      "location_limit": 1
+      "location_limit": 1,
+      "report_types": ["sales", "purchases", "payments"]
     }
   ],
   "reminder_channels": ["email", "sms", "whatsapp"],

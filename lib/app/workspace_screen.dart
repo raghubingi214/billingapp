@@ -5,6 +5,7 @@ import '../features/auth/presentation/auth_providers.dart';
 import '../shared/domain/membership.dart';
 import '../features/team/presentation/invitations_screen.dart';
 import '../features/team/presentation/members_screen.dart';
+import '../features/team/presentation/role_permissions_screen.dart';
 import '../features/catalog/presentation/catalog_screen.dart';
 import '../features/inventory/presentation/inventory_screen.dart';
 import '../features/inventory/presentation/stock_approvals_screen.dart';
@@ -14,6 +15,8 @@ import '../features/customers/presentation/customers_screen.dart';
 import '../features/sales/presentation/sales_screen.dart';
 import '../features/dashboard/presentation/dashboard_panel.dart';
 import '../features/reports/presentation/reports_screen.dart';
+import '../features/reports/presentation/customer_aging_screen.dart';
+import '../features/reports/presentation/stock_valuation_screen.dart';
 import '../features/notifications/presentation/notifications_screen.dart';
 import '../features/sales/presentation/drafts_screen.dart';
 import '../features/audit/presentation/audit_screen.dart';
@@ -207,6 +210,19 @@ class _WorkspaceHome extends ConsumerWidget {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 12),
+          if (menuOnly)
+            Card(
+              child: ListTile(
+                title: const Text('Roles and permissions'),
+                leading: const Icon(Icons.info_outline),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        RolePermissionsScreen(membership: membership),
+                  ),
+                ),
+              ),
+            ),
           if (membership.role == OrganizationRole.owner)
             Card(
               child: ListTile(
@@ -312,6 +328,20 @@ class _WorkspaceHome extends ConsumerWidget {
           if (membership.role != OrganizationRole.cashier)
             Card(
               child: ListTile(
+                title: const Text('Customer aging'),
+                leading: const Icon(Icons.schedule_outlined),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => CustomerAgingScreen(
+                      organizationId: membership.organizationId,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (membership.role != OrganizationRole.cashier)
+            Card(
+              child: ListTile(
                 title: const Text('Customers'),
                 leading: const Icon(Icons.people_outline),
                 onTap: () => Navigator.of(context).push(
@@ -358,6 +388,20 @@ class _WorkspaceHome extends ConsumerWidget {
                         OrganizationRole.owner,
                         OrganizationRole.manager,
                       ].contains(membership.role),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (membership.role != OrganizationRole.cashier)
+            Card(
+              child: ListTile(
+                title: const Text('Stock valuation'),
+                leading: const Icon(Icons.calculate_outlined),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => StockValuationScreen(
+                      organizationId: membership.organizationId,
                     ),
                   ),
                 ),

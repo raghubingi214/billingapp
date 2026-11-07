@@ -26,6 +26,189 @@ final platformPlansProvider = FutureProvider.autoDispose
           ref.watch(platformPlanRepositoryProvider).page(page.offset),
     );
 
+final platformSubscriptionProvider = FutureProvider.autoDispose
+    .family<Map<String, dynamic>, String>(
+      (ref, id) =>
+          ref.watch(platformPlanRepositoryProvider).subscriptionOptions(id),
+    );
+
+class PlatformSubscriptionScreen extends ConsumerStatefulWidget {
+  const PlatformSubscriptionScreen({
+    super.key,
+    required this.organizationId,
+    required this.businessName,
+  });
+  final String organizationId;
+  final String businessName;
+
+  @override
+  ConsumerState<PlatformSubscriptionScreen> createState() =>
+      _PlatformSubscriptionScreenState();
+}
+
+class _PlatformSubscriptionScreenState
+    extends ConsumerState<PlatformSubscriptionScreen> {
+  String? selected;
+  String? requestId;
+  bool busy = false;
+
+  Future<void> assign(Map plan, int? version) async {
+    if (busy) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Assign ${plan['name']}?'),
+        content: Text(
+          'This changes the subscription for ${widget.businessName}. '
+          'This manual assignment does not collect payment or renew automatically.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirm assignment'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true || busy) return;
+    setState(() => busy = true);
+    try {
+      await ref
+          .read(platformPlanRepositoryProvider)
+          .assignSubscription(
+            requestId ??= const Uuid().v4(),
+            widget.organizationId,
+            plan['id'] as String,
+            version,
+          );
+      if (!mounted) return;
+      setState(() {
+        selected = null;
+        requestId = null;
+      });
+      ref.invalidate(platformSubscriptionProvider(widget.organizationId));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Subscription updated')));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Assignment could not be confirmed. Retry or reload plans.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = platformSubscriptionProvider(widget.organizationId);
+    return PopScope(
+      canPop: !busy,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Manage subscription'),
+          actions: [
+            IconButton(
+              tooltip: 'Reload plans',
+              onPressed: busy
+                  ? null
+                  : () {
+                      setState(() {
+                        selected = null;
+                        requestId = null;
+                      });
+                      ref.invalidate(provider);
+                    },
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: ref
+              .watch(provider)
+              .when(
+                skipLoadingOnRefresh: false,
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (_, _) => Center(
+                  child: TextButton(
+                    onPressed: () => ref.invalidate(provider),
+                    child: const Text('Retry loading subscription'),
+                  ),
+                ),
+                data: (data) {
+                  final current = data['current'] as Map?;
+                  final plans = (data['plans'] as List).cast<Map>();
+                  final plan = plans
+                      .where((item) => item['id'] == selected)
+                      .firstOrNull;
+                  final gatewayManaged = current?['gateway_managed'] == true;
+                  return ListView(
+                    padding: const EdgeInsets.all(20),
+                    children: [
+                      Text(
+                        widget.businessName,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      Text('Current plan: ${current?['name'] ?? 'Unassigned'}'),
+                      const SizedBox(height: 16),
+                      if (gatewayManaged)
+                        const Text(
+                          'This subscription is managed by the payment provider.',
+                        )
+                      else if (plans.isEmpty)
+                        const Text('No active plans are available.')
+                      else ...[
+                        DropdownButtonFormField<String>(
+                          key: ValueKey(plan?['id']),
+                          initialValue: plan?['id'] as String?,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'New plan',
+                          ),
+                          items: [
+                            for (final option in plans)
+                              DropdownMenuItem(
+                                value: option['id'] as String,
+                                child: Text(
+                                  '${option['name']} · ₹${option['price_inr']} / ${option['interval']}',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                          ],
+                          onChanged: busy
+                              ? null
+                              : (id) => setState(() {
+                                  selected = id;
+                                  requestId = null;
+                                }),
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          onPressed: busy || plan == null
+                              ? null
+                              : () => assign(plan, current?['version'] as int?),
+                          child: Text(busy ? 'Assigning…' : 'Assign plan'),
+                        ),
+                      ],
+                    ],
+                  );
+                },
+              ),
+        ),
+      ),
+    );
+  }
+}
+
 class PlatformPlansScreen extends ConsumerStatefulWidget {
   const PlatformPlansScreen({super.key, required this.userId});
   final String userId;
@@ -178,6 +361,7 @@ class _DraftState extends ConsumerState<PlatformPlanDraftScreen> {
         entry.value.text = template[entry.key] ?? '';
       }
       interval = template['billing_interval']!;
+      reportTypes = template['report_types']!.split(',');
       command = null;
       fingerprint = null;
       error = null;
@@ -199,6 +383,7 @@ class _DraftState extends ConsumerState<PlatformPlanDraftScreen> {
       key: TextEditingController(),
   };
   String interval = 'month';
+  List<String> reportTypes = ['sales', 'purchases', 'payments'];
   bool busy = true;
   bool restored = false;
   String? error, command, fingerprint;
@@ -223,6 +408,7 @@ class _DraftState extends ConsumerState<PlatformPlanDraftScreen> {
           entry.value.text = '${pending.data[entry.key] ?? ''}';
         }
         interval = pending.data['billing_interval'] as String;
+        reportTypes = List<String>.from(pending.data['report_types'] as List);
         command = pending.requestId;
         fingerprint = payload().toString();
       }
@@ -243,7 +429,7 @@ class _DraftState extends ConsumerState<PlatformPlanDraftScreen> {
   Map<String, dynamic> payload() => {
     for (final entry in fields.entries) entry.key: entry.value.text.trim(),
     'billing_interval': interval,
-    'report_types': ['sales', 'purchases', 'payments'],
+    'report_types': reportTypes,
     'trial_invoice_limit': fields['trial_invoice_limit']!.text.trim().isEmpty
         ? null
         : fields['trial_invoice_limit']!.text.trim(),
@@ -427,8 +613,8 @@ class _DraftState extends ConsumerState<PlatformPlanDraftScreen> {
                           ? null
                           : (value) => setState(() => interval = value!),
                     ),
-                    const Text(
-                      'Includes sales, purchase and cash-flow reports.',
+                    Text(
+                      'Reports included: ${reportTypes.map((type) => type == 'payments' ? 'cash flow' : type).join(', ')}',
                     ),
                     if (error != null) Text(error!),
                     const SizedBox(height: 16),
