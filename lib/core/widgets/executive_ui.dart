@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Reusable executive-grade design components inspired by Stitch mobile POS.
+/// Reusable executive-grade design components directly styled after Stitch Mobile POS.
 class ExecutiveCard extends StatelessWidget {
   const ExecutiveCard({
     super.key,
@@ -21,8 +21,8 @@ class ExecutiveCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final border = borderColor ?? const Color(0xffE2E8F0);
-    final bg = backgroundColor ?? Colors.white;
+    final border = borderColor ?? const Color(0xff31353f);
+    final bg = backgroundColor ?? const Color(0xff1c1f29);
 
     Widget content = Container(
       margin: margin,
@@ -32,8 +32,8 @@ class ExecutiveCard extends StatelessWidget {
         border: Border.all(color: border, width: 1),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xff0F172A).withValues(alpha: 0.04),
-            blurRadius: 10,
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
@@ -75,22 +75,22 @@ class ExecutiveBadge extends StatelessWidget {
 
   factory ExecutiveBadge.paid({String label = 'PAID'}) => ExecutiveBadge(
         label: label,
-        color: const Color(0xff10B981),
+        color: const Color(0xff4edea3),
       );
 
   factory ExecutiveBadge.partial({String label = 'PARTIAL'}) => ExecutiveBadge(
         label: label,
-        color: const Color(0xffF59E0B),
+        color: const Color(0xfff59e0b),
       );
 
   factory ExecutiveBadge.unpaid({String label = 'UNPAID'}) => ExecutiveBadge(
         label: label,
-        color: const Color(0xffF43F5E),
+        color: const Color(0xfff43f5e),
       );
 
   factory ExecutiveBadge.info(String label) => ExecutiveBadge(
         label: label,
-        color: const Color(0xff2563EB),
+        color: const Color(0xff3b82f6),
       );
 
   @override
@@ -98,9 +98,9 @@ class ExecutiveBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(9999),
-        border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -112,6 +112,12 @@ class ExecutiveBadge extends StatelessWidget {
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.6),
+                    blurRadius: 4,
+                  ),
+                ],
               ),
             ),
             const SizedBox(width: 6),
@@ -135,7 +141,7 @@ class ExecutiveBadge extends StatelessWidget {
   }
 }
 
-/// Store telemetry status banner showing real-time store indicators.
+/// Store telemetry status banner showing real-time store indicators identical to Stitch.
 class ExecutiveStoreRibbon extends StatelessWidget {
   const ExecutiveStoreRibbon({
     super.key,
@@ -148,10 +154,11 @@ class ExecutiveStoreRibbon extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xff0F172A),
+        color: const Color(0xff0a0e17),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xff31353f)),
       ),
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,
@@ -166,33 +173,42 @@ class ExecutiveStoreRibbon extends StatelessWidget {
                 width: 8,
                 height: 8,
                 decoration: const BoxDecoration(
-                  color: Color(0xff10B981),
+                  color: Color(0xff4edea3),
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0xff4edea3),
+                      blurRadius: 6,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
               const Text(
                 'Store Active',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: Color(0xffdfe2ef),
                 ),
               ),
             ],
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: const Color(0xff2563EB),
+              color: const Color(0xff2563eb).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: const Color(0xff2563eb).withValues(alpha: 0.5),
+              ),
             ),
             child: Text(
               roleLabel.toUpperCase(),
               style: const TextStyle(
-                fontSize: 9,
+                fontSize: 10,
                 fontWeight: FontWeight.w800,
-                color: Colors.white,
+                color: Color(0xffb4c5ff),
                 letterSpacing: 0.5,
               ),
             ),

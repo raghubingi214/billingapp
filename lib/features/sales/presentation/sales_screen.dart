@@ -172,7 +172,7 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xff0F172A),
+                      color: Color(0xffdfe2ef),
                     ),
                   ),
                   subtitle: Padding(
@@ -182,14 +182,14 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                         const Icon(
                           Icons.calendar_today_outlined,
                           size: 12,
-                          color: Color(0xff94A3B8),
+                          color: Color(0xff8d90a0),
                         ),
                         const SizedBox(width: 4),
                         Text(
                           invoice.date,
                           style: const TextStyle(
                             fontSize: 12,
-                            color: Color(0xff64748B),
+                            color: Color(0xff8d90a0),
                           ),
                         ),
                       ],
@@ -203,7 +203,7 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xff0F172A),
+                          color: Colors.white,
                           letterSpacing: -0.3,
                         ),
                       ),
@@ -211,7 +211,7 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
                       const Icon(
                         Icons.chevron_right,
                         size: 18,
-                        color: Color(0xffCBD5E1),
+                        color: Color(0xff8d90a0),
                       ),
                     ],
                   ),
@@ -425,7 +425,7 @@ class _SalesDetailScreenState extends ConsumerState<SalesDetailScreen> {
                                 'Grand Total',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: Color(0xff64748B),
+                                  color: Color(0xff8d90a0),
                                 ),
                               ),
                               Text(
@@ -433,7 +433,7 @@ class _SalesDetailScreenState extends ConsumerState<SalesDetailScreen> {
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800,
-                                  color: Color(0xff0F172A),
+                                  color: Colors.white,
                                 ),
                               ),
                             ],
@@ -445,7 +445,7 @@ class _SalesDetailScreenState extends ConsumerState<SalesDetailScreen> {
                                 'Paid Total',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: Color(0xff64748B),
+                                  color: Color(0xff8d90a0),
                                 ),
                               ),
                               Text(
@@ -453,7 +453,7 @@ class _SalesDetailScreenState extends ConsumerState<SalesDetailScreen> {
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800,
-                                  color: AppTheme.emerald,
+                                  color: Color(0xff4edea3),
                                 ),
                               ),
                             ],
@@ -465,7 +465,7 @@ class _SalesDetailScreenState extends ConsumerState<SalesDetailScreen> {
                                 'Balance Due',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: Color(0xff64748B),
+                                  color: Color(0xff8d90a0),
                                 ),
                               ),
                               Text(
@@ -474,8 +474,8 @@ class _SalesDetailScreenState extends ConsumerState<SalesDetailScreen> {
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800,
                                   color: balanceDue > 0
-                                      ? AppTheme.rose
-                                      : const Color(0xff0F172A),
+                                      ? const Color(0xfff43f5e)
+                                      : Colors.white,
                                 ),
                               ),
                             ],

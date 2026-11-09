@@ -216,13 +216,18 @@ class _WorkspaceHome extends ConsumerWidget {
                       membership.organizationName,
                       style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.w800,
+                            color: Colors.white,
                           ),
                     ),
                     const SizedBox(height: 4),
-                    const Text('Your business workspace'),
+                    const Text(
+                      'Your business workspace',
+                      style: TextStyle(color: Color(0xff8d90a0)),
+                    ),
                     const SizedBox(height: 12),
                     const Text(
                       'Business setup saved. Your account is linked to this organization.',
+                      style: TextStyle(color: Color(0xff8d90a0)),
                     ),
                   ],
                 ),
@@ -557,7 +562,7 @@ class _ToolCard extends StatelessWidget {
           style: const TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w700,
-            color: Color(0xff0F172A),
+            color: Color(0xffdfe2ef),
           ),
         ),
         subtitle: subtitle != null
@@ -565,11 +570,11 @@ class _ToolCard extends StatelessWidget {
                 subtitle!,
                 style: const TextStyle(
                   fontSize: 12,
-                  color: Color(0xff64748B),
+                  color: Color(0xff8d90a0),
                 ),
               )
             : null,
-        trailing: trailing ?? (onTap != null ? const Icon(Icons.chevron_right, size: 20, color: Color(0xff94A3B8)) : null),
+        trailing: trailing ?? (onTap != null ? const Icon(Icons.chevron_right, size: 20, color: Color(0xff8d90a0)) : null),
         onTap: onTap,
       ),
     );

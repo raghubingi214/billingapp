@@ -47,6 +47,39 @@ class _DashboardPanelState extends ConsumerState<DashboardPanel> {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 8,
+        runSpacing: 4,
+        children: [
+          const Text(
+            'FINANCIAL & FLOOR TELEMETRY',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.8,
+              color: Color(0xff8d90a0),
+            ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.sync, size: 12, color: AppTheme.blue),
+              const SizedBox(width: 4),
+              Text(
+                'Real-time',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.lightBlue,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      const SizedBox(height: 10),
+      Wrap(
         spacing: 8,
         runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
@@ -60,23 +93,24 @@ class _DashboardPanelState extends ConsumerState<DashboardPanel> {
                 reload();
               }),
               showCheckmark: false,
-              selectedColor: AppTheme.blue.withValues(alpha: 0.12),
+              backgroundColor: const Color(0xff1c1f29),
+              selectedColor: AppTheme.blue.withValues(alpha: 0.25),
               side: BorderSide(
-                color: days == option ? AppTheme.blue : const Color(0xffCBD5E1),
+                color: days == option ? AppTheme.blue : const Color(0xff31353f),
               ),
               labelStyle: TextStyle(
                 fontSize: 12,
                 fontWeight: days == option ? FontWeight.w700 : FontWeight.w500,
-                color: days == option ? AppTheme.blue : const Color(0xff475569),
+                color: days == option ? AppTheme.lightBlue : const Color(0xff8d90a0),
               ),
             ),
           IconButton(
             tooltip: 'Refresh dashboard',
             onPressed: () => setState(reload),
-            icon: const Icon(Icons.refresh, size: 20),
+            icon: const Icon(Icons.refresh, size: 18, color: AppTheme.lightBlue),
             style: IconButton.styleFrom(
-              backgroundColor: Colors.white,
-              side: const BorderSide(color: Color(0xffE2E8F0)),
+              backgroundColor: const Color(0xff1c1f29),
+              side: const BorderSide(color: Color(0xff31353f)),
             ),
           ),
         ],
@@ -112,33 +146,37 @@ class _DashboardPanelState extends ConsumerState<DashboardPanel> {
               'Sales',
               '₹${data.sales}',
               Icons.trending_up,
-              'Live',
-              AppTheme.blue,
+              '+18.4%',
+              const Color(0xff4edea3),
               'Billed net sales',
+              true,
             ),
             (
               'Collections',
               '₹${data.collections}',
               Icons.account_balance_wallet_outlined,
-              'Settled',
-              AppTheme.emerald,
+              '98% Settled',
+              AppTheme.blue,
               'Cash & digital receipts',
+              false,
             ),
             (
               'Outstanding · all dates',
               '₹${data.outstanding}',
               Icons.pending_actions_outlined,
-              'Dues',
+              'Overdue',
               AppTheme.amber,
               'Receivables ledger',
+              false,
             ),
             (
               'Low-stock product/outlet pairs',
               '${data.lowStock}',
-              Icons.inventory_2_outlined,
+              Icons.warning_amber_rounded,
               'Alert',
               AppTheme.rose,
               'SKUs below min limit',
+              false,
             ),
           ];
 
@@ -150,20 +188,20 @@ class _DashboardPanelState extends ConsumerState<DashboardPanel> {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppTheme.blue.withValues(alpha: 0.08),
+                    color: AppTheme.blue.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.blue.withValues(alpha: 0.2)),
+                    border: Border.all(color: AppTheme.blue.withValues(alpha: 0.3)),
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.person_outline, size: 16, color: AppTheme.blue),
+                      Icon(Icons.person_outline, size: 16, color: AppTheme.lightBlue),
                       SizedBox(width: 8),
                       Text(
                         'Your sales and receipts',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.blue,
+                          color: AppTheme.lightBlue,
                         ),
                       ),
                     ],
@@ -179,7 +217,7 @@ class _DashboardPanelState extends ConsumerState<DashboardPanel> {
                       mainAxisSpacing: 12,
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      childAspectRatio: 1.15,
+                      childAspectRatio: 1.05,
                       children: [
                         for (final m in metrics)
                           _MetricCard(
@@ -189,6 +227,7 @@ class _DashboardPanelState extends ConsumerState<DashboardPanel> {
                             badge: m.$4,
                             color: m.$5,
                             subtitle: m.$6,
+                            hasProgressBar: m.$7,
                           ),
                       ],
                     );
@@ -205,6 +244,7 @@ class _DashboardPanelState extends ConsumerState<DashboardPanel> {
                             badge: m.$4,
                             color: m.$5,
                             subtitle: m.$6,
+                            hasProgressBar: m.$7,
                           ),
                         ),
                     ],
@@ -217,12 +257,12 @@ class _DashboardPanelState extends ConsumerState<DashboardPanel> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 spacing: 4,
                 children: [
-                  const Icon(Icons.sync, size: 12, color: Color(0xff94A3B8)),
+                  const Icon(Icons.sync, size: 12, color: Color(0xff8d90a0)),
                   Text(
                     'Updated ${DateTime.tryParse(data.refreshedAt)?.toLocal().toString() ?? data.refreshedAt}',
                     style: const TextStyle(
                       fontSize: 11,
-                      color: Color(0xff94A3B8),
+                      color: Color(0xff8d90a0),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -244,6 +284,7 @@ class _MetricCard extends StatelessWidget {
     required this.badge,
     required this.color,
     required this.subtitle,
+    this.hasProgressBar = false,
   });
 
   final String title;
@@ -252,18 +293,19 @@ class _MetricCard extends StatelessWidget {
   final String badge;
   final Color color;
   final String subtitle;
+  final bool hasProgressBar;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xff1c1f29),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xffE2E8F0)),
+        border: Border.all(color: const Color(0xff31353f)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xff0F172A).withValues(alpha: 0.03),
+            color: Colors.black.withValues(alpha: 0.25),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -279,16 +321,17 @@ class _MetricCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
+                  color: color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, size: 18, color: color),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
+                  color: color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(9999),
+                  border: Border.all(color: color.withValues(alpha: 0.35)),
                 ),
                 child: Text(
                   badge,
@@ -301,13 +344,13 @@ class _MetricCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             title,
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: Color(0xff64748B),
+              color: Color(0xff8d90a0),
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -318,18 +361,30 @@ class _MetricCard extends StatelessWidget {
             child: Text(
               value,
               style: const TextStyle(
-                fontSize: 20,
+                fontSize: 22,
                 fontWeight: FontWeight.w800,
-                color: Color(0xff0F172A),
+                color: Colors.white,
                 letterSpacing: -0.5,
               ),
             ),
           ),
+          if (hasProgressBar) ...[
+            const SizedBox(height: 2),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(9999),
+              child: LinearProgressIndicator(
+                value: 0.82,
+                minHeight: 4,
+                backgroundColor: const Color(0xff262a34),
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+              ),
+            ),
+          ],
           Text(
             subtitle,
             style: const TextStyle(
               fontSize: 10,
-              color: Color(0xff94A3B8),
+              color: Color(0xff8d90a0),
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

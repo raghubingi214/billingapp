@@ -353,7 +353,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xff0F172A),
+                      color: Color(0xffdfe2ef),
                     ),
                   ),
                   subtitle: Padding(
@@ -363,7 +363,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xff64748B),
+                        color: Color(0xff8d90a0),
                       ),
                     ),
                   ),
