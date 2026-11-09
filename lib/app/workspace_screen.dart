@@ -26,6 +26,7 @@ import 'theme/app_theme.dart';
 import '../features/support/presentation/support_screen.dart';
 import '../features/subscriptions/presentation/subscription_screen.dart';
 import '../features/search/presentation/business_search_screen.dart';
+import '../core/widgets/executive_ui.dart';
 
 class WorkspaceScreen extends StatefulWidget {
   const WorkspaceScreen({super.key, required this.membership});
@@ -97,13 +98,19 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
           ),
           NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long),
             label: 'Sales',
           ),
           NavigationDestination(
             icon: Icon(Icons.inventory_2_outlined),
+            selectedIcon: Icon(Icons.inventory_2),
             label: 'Inventory',
           ),
-          NavigationDestination(icon: Icon(Icons.menu), label: 'More'),
+          NavigationDestination(
+            icon: Icon(Icons.menu),
+            selectedIcon: Icon(Icons.menu_open),
+            label: 'More',
+          ),
         ],
       ),
     );
@@ -169,36 +176,59 @@ class _WorkspaceHome extends ConsumerWidget {
     ),
     body: SafeArea(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
         children: [
+          ExecutiveStoreRibbon(
+            roleLabel: membership.role == OrganizationRole.owner
+                ? 'SuperAdmin / Owner'
+                : membership.role.label,
+          ),
           if (!menuOnly)
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.storefront_outlined,
-                      color: AppTheme.blue,
-                      size: 40,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.blue.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.storefront_outlined,
+                            color: AppTheme.blue,
+                            size: 28,
+                          ),
+                        ),
+                        ExecutiveBadge(
+                          label: membership.role.label.toUpperCase(),
+                          color: AppTheme.blue,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     Text(
                       membership.organizationName,
-                      style: Theme.of(context).textTheme.headlineSmall,
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     const Text('Your business workspace'),
-                    const SizedBox(height: 16),
-                    Text(
+                    const SizedBox(height: 12),
+                    const Text(
                       'Business setup saved. Your account is linked to this organization.',
                     ),
                   ],
                 ),
               ),
             ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           if (!menuOnly)
             DashboardPanel(
               key: ValueKey(membership.organizationId),
@@ -207,229 +237,134 @@ class _WorkspaceHome extends ConsumerWidget {
           const SizedBox(height: 20),
           Text(
             menuOnly ? 'Business tools' : 'Quick actions',
-            style: Theme.of(context).textTheme.titleLarge,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           if (menuOnly)
-            Card(
-              child: ListTile(
-                title: const Text('Roles and permissions'),
-                leading: const Icon(Icons.info_outline),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) =>
-                        RolePermissionsScreen(membership: membership),
-                  ),
-                ),
-              ),
-            ),
-          if (membership.role == OrganizationRole.owner)
-            Card(
-              child: ListTile(
-                title: const Text('Help & requests'),
-                leading: const Icon(Icons.help_outline),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => SupportScreen(
-                      actorId:
-                          ref.read(authSessionProvider).asData?.value?.userId ??
-                          '',
-                      organizationId: membership.organizationId,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          if (membership.role == OrganizationRole.owner)
-            Card(
-              child: ListTile(
-                title: const Text('Subscription'),
-                leading: const Icon(Icons.card_membership_outlined),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => SubscriptionScreen(
-                      organizationId: membership.organizationId,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          if (membership.role == OrganizationRole.owner)
-            Card(
-              child: ListTile(
-                title: const Text('Business settings'),
-                leading: const Icon(Icons.settings_outlined),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => SettingsScreen(
-                      organizationId: membership.organizationId,
-                      onSaved: () {
-                        final id = ref
-                            .read(authSessionProvider)
-                            .asData
-                            ?.value
-                            ?.userId;
-                        if (id != null) ref.invalidate(membershipProvider(id));
-                      },
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          if ([
-            OrganizationRole.owner,
-            OrganizationRole.accountant,
-          ].contains(membership.role))
-            Card(
-              child: ListTile(
-                title: const Text('Audit history'),
-                leading: const Icon(Icons.history),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) =>
-                        AuditScreen(organizationId: membership.organizationId),
-                  ),
-                ),
-              ),
-            ),
-          if ([
-            OrganizationRole.owner,
-            OrganizationRole.accountant,
-          ].contains(membership.role))
-            Card(
-              child: ListTile(
-                title: const Text('Reports'),
-                leading: const Icon(Icons.bar_chart),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => ReportsScreen(
-                      organizationId: membership.organizationId,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          Card(
-            child: ListTile(
-              title: const Text('Sales invoices'),
-              leading: const Icon(Icons.receipt_long_outlined),
+            _ToolCard(
+              title: 'Roles and permissions',
+              subtitle: 'View access matrix across merchant roles',
+              icon: Icons.shield_outlined,
+              color: AppTheme.blue,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
-                  builder: (_) => SalesScreen(
+                  builder: (_) => RolePermissionsScreen(membership: membership),
+                ),
+              ),
+            ),
+          if (membership.role == OrganizationRole.owner)
+            _ToolCard(
+              title: 'Help & requests',
+              subtitle: 'Platform support, tickets and help threads',
+              icon: Icons.help_outline,
+              color: AppTheme.sapphire,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => SupportScreen(
+                    actorId: ref.read(authSessionProvider).asData?.value?.userId ?? '',
                     organizationId: membership.organizationId,
-                    canSell: membership.role != OrganizationRole.accountant,
-                    canReturn: membership.role == OrganizationRole.owner,
-                    canRemind: membership.role != OrganizationRole.cashier,
                   ),
+                ),
+              ),
+            ),
+          if (membership.role == OrganizationRole.owner)
+            _ToolCard(
+              title: 'Subscription',
+              subtitle: 'Active plan, entitlements and billing limits',
+              icon: Icons.card_membership_outlined,
+              color: AppTheme.emerald,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => SubscriptionScreen(
+                    organizationId: membership.organizationId,
+                  ),
+                ),
+              ),
+            ),
+          if (membership.role == OrganizationRole.owner)
+            _ToolCard(
+              title: 'Business settings',
+              subtitle: 'GSTIN, invoice numbering, tax & store profile',
+              icon: Icons.settings_outlined,
+              color: AppTheme.navy,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => SettingsScreen(
+                    organizationId: membership.organizationId,
+                    onSaved: () {
+                      final id = ref.read(authSessionProvider).asData?.value?.userId;
+                      if (id != null) ref.invalidate(membershipProvider(id));
+                    },
+                  ),
+                ),
+              ),
+            ),
+          if ([OrganizationRole.owner, OrganizationRole.accountant].contains(membership.role))
+            _ToolCard(
+              title: 'Audit history',
+              subtitle: 'Immutable record of operations & adjustments',
+              icon: Icons.history,
+              color: const Color(0xff6366F1),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => AuditScreen(organizationId: membership.organizationId),
+                ),
+              ),
+            ),
+          if ([OrganizationRole.owner, OrganizationRole.accountant].contains(membership.role))
+            _ToolCard(
+              title: 'Reports',
+              subtitle: 'Financial statements, sales and tax breakdowns',
+              icon: Icons.bar_chart,
+              color: AppTheme.emerald,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ReportsScreen(organizationId: membership.organizationId),
+                ),
+              ),
+            ),
+          _ToolCard(
+            title: 'Sales invoices',
+            subtitle: 'Recent issued bills, receipts and payments',
+            icon: Icons.receipt_long_outlined,
+            color: AppTheme.blue,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => SalesScreen(
+                  organizationId: membership.organizationId,
+                  canSell: membership.role != OrganizationRole.accountant,
+                  canReturn: membership.role == OrganizationRole.owner,
+                  canRemind: membership.role != OrganizationRole.cashier,
                 ),
               ),
             ),
           ),
           if (membership.role != OrganizationRole.cashier)
-            Card(
-              child: ListTile(
-                title: const Text('Customer aging'),
-                leading: const Icon(Icons.schedule_outlined),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => CustomerAgingScreen(
-                      organizationId: membership.organizationId,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          if (membership.role != OrganizationRole.cashier)
-            Card(
-              child: ListTile(
-                title: const Text('Customers'),
-                leading: const Icon(Icons.people_outline),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => CustomersScreen(
-                      organizationId: membership.organizationId,
-                      canManage: [
-                        OrganizationRole.owner,
-                        OrganizationRole.manager,
-                      ].contains(membership.role),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          if (membership.role != OrganizationRole.cashier)
-            Card(
-              child: ListTile(
-                title: const Text('Purchases'),
-                leading: const Icon(Icons.shopping_bag_outlined),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => PurchasesScreen(
-                      organizationId: membership.organizationId,
-                      canReceive: [
-                        OrganizationRole.owner,
-                        OrganizationRole.manager,
-                      ].contains(membership.role),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          if (membership.role != OrganizationRole.cashier)
-            Card(
-              child: ListTile(
-                title: const Text('Suppliers'),
-                leading: const Icon(Icons.local_shipping_outlined),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => SuppliersScreen(
-                      organizationId: membership.organizationId,
-                      canManage: [
-                        OrganizationRole.owner,
-                        OrganizationRole.manager,
-                      ].contains(membership.role),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          if (membership.role != OrganizationRole.cashier)
-            Card(
-              child: ListTile(
-                title: const Text('Stock valuation'),
-                leading: const Icon(Icons.calculate_outlined),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => StockValuationScreen(
-                      organizationId: membership.organizationId,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          Card(
-            child: ListTile(
-              title: const Text('Stock'),
-              leading: const Icon(Icons.warehouse_outlined),
+            _ToolCard(
+              title: 'Customer aging',
+              subtitle: 'Outstanding buckets and overdue payment triage',
+              icon: Icons.schedule_outlined,
+              color: AppTheme.amber,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
-                  builder: (_) => InventoryScreen(
+                  builder: (_) => CustomerAgingScreen(
                     organizationId: membership.organizationId,
-                    canCount: membership.role == OrganizationRole.owner,
-                    canRequest: membership.role == OrganizationRole.manager,
-                    canReadHistory: membership.role != OrganizationRole.cashier,
                   ),
                 ),
               ),
             ),
-          ),
-          Card(
-            child: ListTile(
-              title: const Text('Products & services'),
-              leading: const Icon(Icons.inventory_2_outlined),
+          if (membership.role != OrganizationRole.cashier)
+            _ToolCard(
+              title: 'Customers',
+              subtitle: 'Client directories, credit limits and balances',
+              icon: Icons.people_outline,
+              color: const Color(0xff0EA5E9),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
-                  builder: (_) => CatalogScreen(
+                  builder: (_) => CustomersScreen(
                     organizationId: membership.organizationId,
                     canManage: [
                       OrganizationRole.owner,
@@ -439,71 +374,204 @@ class _WorkspaceHome extends ConsumerWidget {
                 ),
               ),
             ),
+          if (membership.role != OrganizationRole.cashier)
+            _ToolCard(
+              title: 'Purchases',
+              subtitle: 'Vendor bills, inbound goods and payables',
+              icon: Icons.shopping_bag_outlined,
+              color: const Color(0xff8B5CF6),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => PurchasesScreen(
+                    organizationId: membership.organizationId,
+                    canReceive: [
+                      OrganizationRole.owner,
+                      OrganizationRole.manager,
+                    ].contains(membership.role),
+                  ),
+                ),
+              ),
+            ),
+          if (membership.role != OrganizationRole.cashier)
+            _ToolCard(
+              title: 'Suppliers',
+              subtitle: 'Vendor profiles, tax details and terms',
+              icon: Icons.local_shipping_outlined,
+              color: const Color(0xff14B8A6),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => SuppliersScreen(
+                    organizationId: membership.organizationId,
+                    canManage: [
+                      OrganizationRole.owner,
+                      OrganizationRole.manager,
+                    ].contains(membership.role),
+                  ),
+                ),
+              ),
+            ),
+          if (membership.role != OrganizationRole.cashier)
+            _ToolCard(
+              title: 'Stock valuation',
+              subtitle: 'Weighted-average cost and asset totals',
+              icon: Icons.calculate_outlined,
+              color: AppTheme.blue,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => StockValuationScreen(
+                    organizationId: membership.organizationId,
+                  ),
+                ),
+              ),
+            ),
+          _ToolCard(
+            title: 'Stock',
+            subtitle: 'Inventory on hand and outlet positions',
+            icon: Icons.warehouse_outlined,
+            color: const Color(0xffD97706),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => InventoryScreen(
+                  organizationId: membership.organizationId,
+                  canCount: membership.role == OrganizationRole.owner,
+                  canRequest: membership.role == OrganizationRole.manager,
+                  canReadHistory: membership.role != OrganizationRole.cashier,
+                ),
+              ),
+            ),
+          ),
+          _ToolCard(
+            title: 'Products & services',
+            subtitle: 'Master catalog, SKU codes and price master',
+            icon: Icons.inventory_2_outlined,
+            color: AppTheme.blue,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => CatalogScreen(
+                  organizationId: membership.organizationId,
+                  canManage: [
+                    OrganizationRole.owner,
+                    OrganizationRole.manager,
+                  ].contains(membership.role),
+                ),
+              ),
+            ),
           ),
           if (membership.role == OrganizationRole.owner)
-            Card(
-              child: ListTile(
-                title: const Text('Team access'),
-                leading: const Icon(Icons.manage_accounts_outlined),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => MembersScreen(
-                      organizationId: membership.organizationId,
-                    ),
+            _ToolCard(
+              title: 'Team access',
+              subtitle: 'Staff memberships and role assignments',
+              icon: Icons.manage_accounts_outlined,
+              color: const Color(0xffEC4899),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => MembersScreen(
+                    organizationId: membership.organizationId,
                   ),
                 ),
               ),
             ),
           if (membership.role == OrganizationRole.owner)
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.group_outlined),
-                title: const Text('Team invitations'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => InvitationsScreen(
-                      organizationId: membership.organizationId,
-                      onAccepted: () {},
-                    ),
+            _ToolCard(
+              title: 'Team invitations',
+              subtitle: 'Pending staff invitations and verification',
+              icon: Icons.group_outlined,
+              color: AppTheme.sapphire,
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => InvitationsScreen(
+                    organizationId: membership.organizationId,
+                    onAccepted: () {},
                   ),
                 ),
               ),
             ),
-          if ([
-            OrganizationRole.owner,
-            OrganizationRole.manager,
-          ].contains(membership.role))
-            Card(
-              child: ListTile(
-                title: const Text('Stock approvals'),
-                leading: const Icon(Icons.fact_check_outlined),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => StockApprovalsScreen(
-                      organizationId: membership.organizationId,
-                      canReview: membership.role == OrganizationRole.owner,
-                    ),
+          if ([OrganizationRole.owner, OrganizationRole.manager].contains(membership.role))
+            _ToolCard(
+              title: 'Stock approvals',
+              subtitle: 'Manager adjustment requests awaiting review',
+              icon: Icons.fact_check_outlined,
+              color: AppTheme.amber,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => StockApprovalsScreen(
+                    organizationId: membership.organizationId,
+                    canReview: membership.role == OrganizationRole.owner,
                   ),
                 ),
               ),
             ),
-          const Card(
-            child: ListTile(
-              leading: Icon(Icons.check_circle_outline, color: AppTheme.teal),
-              title: Text('Business profile'),
-              subtitle: Text('Organization and default outlet created'),
-            ),
+          _ToolCard(
+            title: 'Business profile',
+            subtitle: 'Organization and default outlet created',
+            icon: Icons.check_circle_outline,
+            color: AppTheme.emerald,
+            onTap: null,
           ),
-          const Card(
-            child: ListTile(
-              leading: Icon(Icons.lock_outline),
-              title: Text('Account access'),
-              subtitle: Text('Protected by your active business membership'),
-            ),
+          _ToolCard(
+            title: 'Account access',
+            subtitle: 'Protected by your active business membership',
+            icon: Icons.lock_outline,
+            color: const Color(0xff64748B),
+            onTap: null,
           ),
         ],
       ),
     ),
   );
+}
+
+class _ToolCard extends StatelessWidget {
+  const _ToolCard({
+    required this.title,
+    this.subtitle,
+    required this.icon,
+    required this.color,
+    this.trailing,
+    this.onTap,
+  });
+
+  final String title;
+  final String? subtitle;
+  final IconData icon;
+  final Color color;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: color, size: 22),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: Color(0xff0F172A),
+          ),
+        ),
+        subtitle: subtitle != null
+            ? Text(
+                subtitle!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xff64748B),
+                ),
+              )
+            : null,
+        trailing: trailing ?? (onTap != null ? const Icon(Icons.chevron_right, size: 20, color: Color(0xff94A3B8)) : null),
+        onTap: onTap,
+      ),
+    );
+  }
 }

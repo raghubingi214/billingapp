@@ -6,6 +6,7 @@ import '../domain/inventory_repository.dart';
 import '../data/supabase_inventory_repository.dart';
 import 'stock_approvals_screen.dart';
 import 'stock_history_sheet.dart';
+import '../../../app/theme/app_theme.dart';
 
 final inventoryRepositoryProvider = Provider<InventoryRepository>(
   (ref) => SupabaseInventoryRepository(ref.watch(supabaseClientProvider)),
@@ -78,7 +79,11 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Count ${position.name}'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Count ${position.name}',
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
         content: SingleChildScrollView(
           child: Form(
             key: form,
@@ -202,57 +207,165 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Stock')),
+    appBar: AppBar(
+      title: const Text(
+        'Stock',
+        style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.3),
+      ),
+    ),
     body: SafeArea(
       child: RefreshIndicator(
         onRefresh: () => load(reset: true),
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
           children: [
             if (outlets.isNotEmpty)
-              DropdownButtonFormField<String>(
-                key: ValueKey(selected),
-                initialValue: selected,
-                decoration: const InputDecoration(labelText: 'Outlet'),
-                items: outlets
-                    .map(
-                      (o) => DropdownMenuItem(value: o.id, child: Text(o.name)),
-                    )
-                    .toList(),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: DropdownButtonFormField<String>(
+                    key: ValueKey(selected),
+                    initialValue: selected,
+                    decoration: const InputDecoration(
+                      labelText: 'Outlet',
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    items: outlets
+                        .map(
+                          (o) => DropdownMenuItem(
+                            value: o.id,
+                            child: Text(
+                              o.name,
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: busy
+                        ? null
+                        : (v) {
+                            setState(() => selected = v);
+                            load(reset: true);
+                          },
+                  ),
+                ),
+              ),
+            Card(
+              child: SwitchListTile(
+                title: const Text(
+                  'Low stock only',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                secondary: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.amber.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    size: 20,
+                    color: AppTheme.amber,
+                  ),
+                ),
+                value: lowOnly,
                 onChanged: busy
                     ? null
-                    : (v) {
-                        setState(() => selected = v);
+                    : (value) {
+                        setState(() => lowOnly = value);
                         load(reset: true);
                       },
               ),
-            SwitchListTile(
-              title: const Text('Low stock only'),
-              value: lowOnly,
-              onChanged: busy
-                  ? null
-                  : (value) {
-                      setState(() => lowOnly = value);
-                      load(reset: true);
-                    },
             ),
-            if (busy) const LinearProgressIndicator(),
-            if (error != null)
-              TextButton(
-                onPressed: () => load(reset: true),
-                child: Text(error!),
-              ),
-            if (!busy && positions.isEmpty)
+            if (busy && positions.isEmpty)
+              const LinearProgressIndicator(minHeight: 2)
+            else if (busy)
               const Padding(
-                padding: EdgeInsets.all(24),
-                child: Text('No stock products yet.'),
+                padding: EdgeInsets.symmetric(vertical: 4),
+                child: LinearProgressIndicator(minHeight: 2),
+              ),
+            if (error != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: TextButton.icon(
+                    onPressed: () => load(reset: true),
+                    icon: const Icon(Icons.refresh),
+                    label: Text(error!),
+                  ),
+                ),
+              ),
+            if (!busy && positions.isEmpty && error == null)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 48),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xffF1F5F9),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Icon(
+                          Icons.inventory_2_outlined,
+                          size: 48,
+                          color: Color(0xff94A3B8),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'No stock products yet.',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xff64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             for (final position in positions)
               Card(
                 child: ListTile(
-                  title: Text(position.name),
-                  subtitle: Text(
-                    '${position.quantity} ${position.unit} on hand',
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.blue.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.inventory_2_outlined,
+                      color: AppTheme.blue,
+                      size: 22,
+                    ),
+                  ),
+                  title: Text(
+                    position.name,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xff0F172A),
+                    ),
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '${position.quantity} ${position.unit} on hand',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xff64748B),
+                      ),
+                    ),
                   ),
                   onTap: widget.canReadHistory ? () => history(position) : null,
                   trailing: widget.canCount || widget.canRequest
@@ -260,16 +373,49 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                           tooltip: widget.canCount
                               ? 'Count stock'
                               : 'Request stock count',
-                          icon: const Icon(Icons.edit_note),
+                          icon: const Icon(Icons.edit_note, color: AppTheme.blue),
+                          style: IconButton.styleFrom(
+                            backgroundColor: AppTheme.blue.withValues(alpha: 0.08),
+                          ),
                           onPressed: busy ? null : () => count(position),
                         )
                       : null,
                 ),
               ),
-            if (more && !busy)
-              TextButton(
-                onPressed: () => load(),
-                child: const Text('Load more'),
+            if (positions.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Column(
+                  children: [
+                    Text(
+                      'Showing ${positions.length} items',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xff64748B),
+                      ),
+                    ),
+                    if (more && !busy) ...[
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: () => load(),
+                        icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+                        label: const Text('Load more'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.blue,
+                          side: const BorderSide(color: Color(0xffCBD5E1)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
           ],
         ),
