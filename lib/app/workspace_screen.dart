@@ -26,7 +26,6 @@ import 'theme/app_theme.dart';
 import '../features/support/presentation/support_screen.dart';
 import '../features/subscriptions/presentation/subscription_screen.dart';
 import '../features/search/presentation/business_search_screen.dart';
-import '../core/widgets/executive_ui.dart';
 
 class WorkspaceScreen extends StatefulWidget {
   const WorkspaceScreen({super.key, required this.membership});
@@ -92,23 +91,29 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
         onDestinationSelected: (index) => setState(() => selected = index),
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
             label: 'Home',
           ),
           NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: 'Sales',
+            icon: Icon(Icons.point_of_sale_outlined),
+            selectedIcon: Icon(Icons.point_of_sale),
+            label: 'POS',
           ),
           NavigationDestination(
-            icon: Icon(Icons.inventory_2_outlined),
-            selectedIcon: Icon(Icons.inventory_2),
+            icon: Badge(
+              label: Text('7'),
+              child: Icon(Icons.inventory_2_outlined),
+            ),
+            selectedIcon: Badge(
+              label: Text('7'),
+              child: Icon(Icons.inventory_2),
+            ),
             label: 'Inventory',
           ),
           NavigationDestination(
-            icon: Icon(Icons.menu),
-            selectedIcon: Icon(Icons.menu_open),
+            icon: Icon(Icons.more_horiz),
+            selectedIcon: Icon(Icons.more_horiz),
             label: 'More',
           ),
         ],
@@ -125,130 +130,85 @@ class _WorkspaceHome extends ConsumerWidget {
   });
   final bool menuOnly;
   final Membership membership;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) => Scaffold(
-    appBar: AppBar(
-      title: Text(menuOnly ? 'More' : 'Smart Billing'),
-      actions: [
-        IconButton(
-          tooltip: 'Search business',
-          icon: const Icon(Icons.search),
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => BusinessSearchScreen(membership: membership),
-            ),
-          ),
-        ),
-        IconButton(
-          tooltip: 'Notifications',
-          icon: const Icon(Icons.notifications_outlined),
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => NotificationsScreen(
-                organizationId: membership.organizationId,
+    appBar: menuOnly
+        ? AppBar(
+            title: const Text('More'),
+            actions: [
+              IconButton(
+                tooltip: 'Sign out',
+                icon: const Icon(Icons.logout),
+                onPressed: () async {
+                  try {
+                    await ref.read(authRepositoryProvider).signOut();
+                  } catch (_) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Could not sign out. Please try again.'),
+                        ),
+                      );
+                    }
+                  }
+                },
               ),
-            ),
-          ),
-        ),
-        IconButton(
-          tooltip: 'Switch business',
-          icon: const Icon(Icons.swap_horiz),
-          onPressed: () => context.go('/businesses'),
-        ),
-        IconButton(
-          tooltip: 'Sign out',
-          icon: const Icon(Icons.logout),
-          onPressed: () async {
-            try {
-              await ref.read(authRepositoryProvider).signOut();
-            } catch (_) {
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Could not sign out. Please try again.'),
-                  ),
-                );
-              }
-            }
-          },
-        ),
-      ],
-    ),
+            ],
+          )
+        : null,
     body: SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
         children: [
-          ExecutiveStoreRibbon(
-            roleLabel: membership.role == OrganizationRole.owner
-                ? 'SuperAdmin / Owner'
-                : membership.role.label,
-          ),
-          if (!menuOnly)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppTheme.blue.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.storefront_outlined,
-                            color: AppTheme.blue,
-                            size: 28,
-                          ),
-                        ),
-                        ExecutiveBadge(
-                          label: membership.role.label.toUpperCase(),
-                          color: AppTheme.blue,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      membership.organizationName,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Your business workspace',
-                      style: TextStyle(color: Color(0xff8d90a0)),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Business setup saved. Your account is linked to this organization.',
-                      style: TextStyle(color: Color(0xff8d90a0)),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          const SizedBox(height: 16),
-          if (!menuOnly)
+          if (!menuOnly) ...[
+            _StitchExecutiveHeader(membership: membership),
+            const SizedBox(height: 16),
             DashboardPanel(
               key: ValueKey(membership.organizationId),
               organizationId: membership.organizationId,
-            ),
-          const SizedBox(height: 20),
-          Text(
-            menuOnly ? 'Business tools' : 'Quick actions',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.3,
+              onNewSale: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => DraftsScreen(
+                    organizationId: membership.organizationId,
+                  ),
                 ),
-          ),
-          const SizedBox(height: 10),
-          if (menuOnly)
+              ),
+              onScan: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => BusinessSearchScreen(
+                    membership: membership,
+                  ),
+                ),
+              ),
+              onAddStock: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => InventoryScreen(
+                    organizationId: membership.organizationId,
+                    canCount: membership.role == OrganizationRole.owner,
+                    canRequest: membership.role == OrganizationRole.manager,
+                    canReadHistory: true,
+                  ),
+                ),
+              ),
+              onReports: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ReportsScreen(
+                    organizationId: membership.organizationId,
+                  ),
+                ),
+              ),
+            ),
+          ],
+          if (menuOnly) ...[
+            Text(
+              'Business tools',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
+            ),
+            const SizedBox(height: 10),
             _ToolCard(
               title: 'Roles and permissions',
               subtitle: 'View access matrix across merchant roles',
@@ -521,10 +481,268 @@ class _WorkspaceHome extends ConsumerWidget {
             color: const Color(0xff64748B),
             onTap: null,
           ),
+          ],
         ],
       ),
     ),
   );
+}
+
+class _StitchExecutiveHeader extends StatelessWidget {
+  const _StitchExecutiveHeader({required this.membership});
+  final Membership membership;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xff1c1f29),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xff31353f)),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(9),
+                    child: Image.network(
+                      'https://lh3.googleusercontent.com/aida-public/AB6AXuD38hbvwXevnJ4MQJQNos0JSPhiTKrVCWgN5mK-xJmKgr15fCkVMIaNBsNXlS8QgJ7gcnFfmrK1elgL7s5ScE38gD8GXb14BJfPp9HkUBJGICs2MFBLi3klLflarmkoNHpsaoAubBkhcuaGrB7gYxwWxfKnusF2g4sqBDroBr1wHSUCXwcA4V_J2Qt-Z11AI2JPWOmnVBKC8jkZdtscKoEEy6vKb4fTgnAOufR3q002AqY2yR3NCDlGoToKXGQ6slP5S0sDx7FZd4w',
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => const Center(
+                        child: Text(
+                          'MV',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            color: Color(0xffb4c5ff),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: -2,
+                  bottom: -2,
+                  child: Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: const Color(0xff4edea3),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xff0a0e17),
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: InkWell(
+                onTap: () => context.go('/businesses'),
+                borderRadius: BorderRadius.circular(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      membership.role == OrganizationRole.owner
+                          ? 'Marcus Vance • SuperAdmin'
+                          : 'Operator • ${membership.role.label}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xff8d90a0),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            membership.organizationName,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.keyboard_arrow_down,
+                          size: 18,
+                          color: AppTheme.blue,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            InkWell(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => BusinessSearchScreen(membership: membership),
+                ),
+              ),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xff1c1f29),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xff31353f)),
+                ),
+                child: const Icon(
+                  Icons.qr_code_scanner,
+                  size: 18,
+                  color: AppTheme.lightBlue,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => NotificationsScreen(
+                    organizationId: membership.organizationId,
+                  ),
+                ),
+              ),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xff1c1f29),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xff31353f)),
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    const Icon(
+                      Icons.notifications_outlined,
+                      size: 19,
+                      color: Color(0xffdfe2ef),
+                    ),
+                    Positioned(
+                      right: 4,
+                      top: 4,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Color(0xfff43f5e),
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 12,
+                          minHeight: 12,
+                        ),
+                        child: const Text(
+                          '2',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        const Divider(height: 1, color: Color(0xff262a34)),
+        const SizedBox(height: 8),
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: Color(0xff4edea3),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Store Open',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xff4edea3),
+                    ),
+                  ),
+                  const Text(
+                    ' • Reg #01 Active',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xff8d90a0),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.point_of_sale, size: 13, color: Color(0xff8d90a0)),
+                  SizedBox(width: 4),
+                  Text(
+                    'Drawer: ',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xff8d90a0),
+                    ),
+                  ),
+                  Text(
+                    '\$1,250.00',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.blue,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _ToolCard extends StatelessWidget {
